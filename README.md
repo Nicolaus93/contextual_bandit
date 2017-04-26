@@ -1,3 +1,3 @@
-# contextual_bandit
+# Contextual Bandit Algorithms
 
-expanding Striatum
+Using and expanding Striatum for some experiments (in Python)
