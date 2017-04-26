@@ -10,7 +10,6 @@ from six.moves import zip
 from collections import defaultdict
 
 import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
 
 from .bandit import BaseBandit
 from ..utils import get_random_state
@@ -96,30 +95,34 @@ class ThompCAB(BaseBandit):
         user_estimated_reward_array = context_array.dot(user_mu_hat)
         user_score_array = context_array.dot(user_mu_tilde)
 
+        t1 = time.time()
+
+        # iterate over users or actions?
         for j in range(self.numUsers):
             if j == user:
                 for action_id in action_ids:
                     self.N[action_id].append(j)
                 continue
-            elif self.used[j] >= self.minUsed:
-                # B = model[j]['B']
+            elif self.used[j] >= self.minUsed and np.random.rand() <= self.p:
+                B = model[j]['B']
                 mu_hat = model[j]['mu_hat']
                 # mu_tilde = self.random_state.multivariate_normal(
                 #     mu_hat.flat, v**2 * np.linalg.inv(B))[..., np.newaxis]
                 estimated_reward_array = context_array.dot(mu_hat)
                 # score_array = context_array.dot(mu_tilde)
-                # for action_id, estimated_reward, score in zip(
-                #         action_ids, estimated_reward_array, score_array):
+
                 for action_id, estimated_reward in zip(
                     action_ids, estimated_reward_array):
-                    r = np.random.rand()
-                    if r <= self.p:
-                        # CHANGE HERE!
-                        # if cosine_similarity(user_mu_tilde, mu_hat) > self.gamma:
-                        if cosine_similarity(user_mu_hat.reshape(1,-1), mu_hat.reshape(1,-1)) > self.gamma:
-                            self.N[action_id].append(j)
-                        # if np.abs(user_score_array-score_array) <= ...
-                        #     self.N[action_id].append(j)
+
+                    if np.abs(estimated_reward - user_estimated_reward[action_id]) < 
+                    # CHANGE HERE!
+                    cos_sim = user_mu_hat.T.dot(mu_hat)/(np.linalg.norm(user_mu_hat)*np.linalg.norm(mu_hat))
+                    # if cos_sim > self.gamma:
+                    if cos_sim > 0.2:
+                        self.N[action_id].append(j)
+
+        t2 = time.time()
+        # print(str(t2-t1) + " secs")
 
         # compute payoffs
         estimated_reward = {}
@@ -132,14 +135,13 @@ class ThompCAB(BaseBandit):
             B_sum = np.zeros(shape=(self.context_dimension, self.context_dimension))
 
             for j in self.N[action_id]:
+                if len(self.N[action_id]) > 1:
+                    print(len(self.N[action_id]))
                 B = model[j]['B']
                 mu_hat = model[j]['mu_hat']
-                # mu_tilde = self.random_state.multivariate_normal(
-                #         mu_hat.flat, v**2 * np.linalg.inv(B))[..., np.newaxis]
 
                 mu_hat_sum += mu_hat
                 B_sum += B
-                # mu_tilde_sum += mu_tilde
 
             avg_mu_hat = mu_hat_sum / len(self.N[action_id])
             avg_B = B_sum / len(self.N[action_id])
@@ -149,6 +151,9 @@ class ThompCAB(BaseBandit):
             estimated_reward[action_id] = float(action_context.T.dot(avg_mu_hat))
             score[action_id] = float(action_context.T.dot(avg_mu_tilde))
             uncertainty[action_id] = float(score[action_id] - estimated_reward[action_id])
+
+        t3 = time.time()
+        # print(str(t3-t2) + " secs")
 
         return estimated_reward, uncertainty, score
 
@@ -232,14 +237,11 @@ class ThompCAB(BaseBandit):
             user_estimated_reward = recommendations[0].estimated_reward
             user_score = recommendations[0].score
             CB = float(user_score - user_estimated_reward)
-
-            print("Thompson: " + str(CB))
-            print("threshold: " + str(self.alpha * self.gamma/4 * np.log(self.t+1)))
             
             if CB > self.alpha * self.gamma/4 * np.log(self.t+1):
                 print("alone")
                 context_t = np.reshape(context[action_id], (-1, 1))
-                model[user]['B'] += context_t.dot(context_t.T)  # pylint: disable=invalid-name
+                model[user]['B'] += context_t.dot(context_t.T)
                 model[user]['f'] += reward * context_t
                 model[user]['mu_hat'] = np.linalg.inv(model[user]['B']).dot(model[user]['f'])
             else:
@@ -250,7 +252,7 @@ class ThompCAB(BaseBandit):
 
                         if CB_j <= self.alpha * self.gamma/4 * np.log(self.t+1):
                             context_t = np.reshape(context[action_id], (-1, 1))
-                            model[j]['B'] += context_t.dot(context_t.T)  # pylint: disable=invalid-name
+                            model[j]['B'] += context_t.dot(context_t.T)
                             model[j]['f'] += reward * context_t
                             model[j]['mu_hat'] = np.linalg.inv(model[j]['B']).dot(model[j]['f'])
 

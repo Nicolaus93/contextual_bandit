@@ -47,13 +47,14 @@ def policy_generation(bandit, actions):
         policy = linucb.LinUCB(historystorage, modelstorage, actions, alpha=0.3, context_dimension=18)
 
     elif bandit == 'Cab':
-        policy = cab.CAB(historystorage, modelstorage, actions, 6040, context_dimension=18, minUsed=1)
+        policy = cab.CAB(historystorage, modelstorage, actions, 6040, context_dimension=18, minUsed=0)
 
     elif bandit == 'random':
         policy = 0
 
     elif bandit == 'ThompCab':
-        policy = thomp_cab.ThompCAB(historystorage, modelstorage, actions, 6040, context_dimension=18, minUsed=0)
+        policy = thomp_cab.ThompCAB(historystorage, modelstorage, actions, 6040, context_dimension=18, minUsed=0, 
+                                        delta=0.1, R=0.01, epsilon=1/np.log(1000))
 
     return policy
 
@@ -63,7 +64,6 @@ def policy_evaluation(policy, bandit, streaming_batch, user_feature, reward_list
     seq_error = np.zeros(shape=(times, 1))
     # actions_id = [actions[i].id for i in range(len(actions))]
     actions_id = [actions[i] for i in range(len(actions))]
-    print(actions_id)
     action_features = action_context.drop('movie_name', 1)
 
     if bandit in ['LinUCB', 'LinThompSamp', 'UCB1', 'Exp3']:
@@ -158,13 +158,13 @@ def regret_calculation(seq_error):
 
 def main():
     streaming_batch, user_feature, actions, reward_list, action_context = get_data()
-    streaming_batch_small = streaming_batch.iloc[0:100]
+    streaming_batch_small = streaming_batch.iloc[0:1000]
     # conduct regret analyses
     regret = {}
     col = ['b', 'g', 'r', 'y']
     # bandits = ['LinUCB']
-    bandits = ['Cab']
-    # bandits = ['ThompCab', 'Cab', 'LinThompSamp', 'LinUCB']
+    # bandits = ['Cab']
+    bandits = ['ThompCab', 'Cab', 'LinThompSamp', 'LinUCB']
     # bandits = ['LinThompSamp', 'random']
     for i, bandit in enumerate(bandits):
         policy = policy_generation(bandit, actions)
