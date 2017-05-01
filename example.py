@@ -158,7 +158,7 @@ def regret_calculation(seq_error):
 
 def main():
     streaming_batch, user_feature, actions, reward_list, action_context = get_data()
-    streaming_batch_small = streaming_batch.iloc[0:1000]
+    streaming_batch_small = streaming_batch.iloc[0:100]
     # conduct regret analyses
     regret = {}
     col = ['b', 'g', 'r', 'y']

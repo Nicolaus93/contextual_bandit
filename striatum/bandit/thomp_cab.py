@@ -85,7 +85,6 @@ class ThompCAB(BaseBandit):
         v = self.R * np.sqrt(24 / self.epsilon
                              * self.context_dimension
                              * np.log(1 / self.delta))
-
         # compute neighbourood sets
         self.N = defaultdict(list)
         user_B = model[user]['B']
@@ -96,32 +95,43 @@ class ThompCAB(BaseBandit):
         user_score_array = context_array.dot(user_mu_tilde)
         user_CB = user_score_array - user_estimated_reward_array
         # store mu tilde for all users
-        self.mu_tilde_array = []
+        self.mu_tilde_array = [0] * self.numUsers
 
         t1 = time.time()
 
         # iterate over users
         for j in range(self.numUsers):
+            # if user, go to next step
             if j == user:
                 for action_id in action_ids:
                     self.N[action_id].append(j)
-                    self.mu_tilde_array.append(user_mu_tilde)
+                    self.mu_tilde_array[j] = user_mu_tilde
                 continue
             elif self.used[j] >= self.minUsed and np.random.rand() <= self.p:
+                # retrieve j-th user parameters and sample mu tilde
                 B = model[j]['B']
                 mu_hat = model[j]['mu_hat']
                 mu_tilde = self.random_state.multivariate_normal(
                     mu_hat.flat, v**2 * np.linalg.inv(B))[..., np.newaxis]
-                self.mu_tilde_array.append(mu_tilde)
+                # store mu tilde for later
+                self.mu_tilde_array[j] = mu_tilde
+                # compute scores
                 estimated_reward_array = context_array.dot(mu_hat)
                 score_array = context_array.dot(mu_tilde)
+                # compute "confidence bound" and update neighborood
                 j_CB = score_array - estimated_reward_array
+                
+                # for action_id, estimated_reward, score in zip(
+                #     action_ids, estimated_reward_array, score_array):
 
-                for action_id, estimated_reward, score in zip(
-                    action_ids, estimated_reward_array, score_array):
+                #     if np.abs(float(estimated_reward - user_estimated_reward_array[action_id])) < user_CB[action_id] + j_CB[action_id]:
+                #         self.N[action_id].append(j)
 
-                    if np.abs(estimated_reward - user_estimated_reward_array[action_id]) < user_CB + j_CB:
-                        self.N[action_id].append(j)
+                one = np.abs(estimated_reward_array - user_estimated_reward_array)
+                two = user_CB + j_CB
+                a, _, useless = np.where(one < two)
+                for i in a:
+                    self.N[action_ids[i]].append(j)
 
         t2 = time.time()
         # print(str(t2-t1) + " secs")
@@ -246,27 +256,33 @@ class ThompCAB(BaseBandit):
 
         for action_id, reward in six.viewitems(rewards):
             action_context = np.reshape(context[action_id], (-1,1))
-            # WARNING! USE ONLY WITH MOVIELENS (1 ACTION REQUIRED), OTHERWISE FIX IT
-            user_estimated_reward = recommendations[0].estimated_reward
-            user_score = recommendations[0].score
-            CB = float(user_score - user_estimated_reward)
-            
-            if CB > self.alpha * self.gamma/4 * np.log(self.t+1):
+
+            # # WARNING! USE ONLY WITH MOVIELENS (1 ACTION REQUIRED), OTHERWISE FIX IT
+            # user_estimated_reward = recommendations[0].estimated_reward
+            # user_score = recommendations[0].score
+            # CB = float(user_score - user_estimated_reward)
+
+            user_estimated_reward = action_context.T.dot(model[user]['mu_hat'])
+            user_score = action_context.T.dot(self.mu_tilde_array[user])
+            user_CB = user_score - user_estimated_reward
+
+            if user_CB > self.alpha * self.gamma/4 * np.log(self.t+1):
                 print("alone")
-                context_t = np.reshape(context[action_id], (-1, 1))
-                model[user]['B'] += context_t.dot(context_t.T)
-                model[user]['f'] += reward * context_t
+                model[user]['B'] += action_context.dot(action_context.T)
+                model[user]['f'] += reward * action_context
                 model[user]['mu_hat'] = np.linalg.inv(model[user]['B']).dot(model[user]['f'])
             else:
                 for action_id, reward in six.viewitems(rewards):
                     for j in self.N[action_id]:
-                        # what here?
-                        CB_j = 1
-
-                        if CB_j <= self.alpha * self.gamma/4 * np.log(self.t+1):
-                            context_t = np.reshape(context[action_id], (-1, 1))
-                            model[j]['B'] += context_t.dot(context_t.T)
-                            model[j]['f'] += reward * context_t
+                        mu_hat = model[j]['mu_hat']
+                        mu_tilde = self.mu_tilde_array[j]
+                        estimated_reward = action_context.T.dot(mu_hat)
+                        score = action_context.T.dot(mu_tilde)
+                        j_CB = float(score - estimated_reward)
+                        # update model
+                        if j_CB <= self.alpha * self.gamma/4 * np.log(self.t+1):
+                            model[j]['B'] += action_context.dot(action_context.T)
+                            model[j]['f'] += reward * action_context
                             model[j]['mu_hat'] = np.linalg.inv(model[j]['B']).dot(model[j]['f'])
 
             self._model_storage.save_model(model)
