@@ -94,31 +94,33 @@ class ThompCAB(BaseBandit):
             user_mu_hat.flat, v**2 * np.linalg.inv(user_B))[..., np.newaxis]
         user_estimated_reward_array = context_array.dot(user_mu_hat)
         user_score_array = context_array.dot(user_mu_tilde)
+        user_CB = user_score_array - user_estimated_reward_array
+        # store mu tilde for all users
+        self.mu_tilde_array = []
 
         t1 = time.time()
 
-        # iterate over users or actions?
+        # iterate over users
         for j in range(self.numUsers):
             if j == user:
                 for action_id in action_ids:
                     self.N[action_id].append(j)
+                    self.mu_tilde_array.append(user_mu_tilde)
                 continue
             elif self.used[j] >= self.minUsed and np.random.rand() <= self.p:
                 B = model[j]['B']
                 mu_hat = model[j]['mu_hat']
-                # mu_tilde = self.random_state.multivariate_normal(
-                #     mu_hat.flat, v**2 * np.linalg.inv(B))[..., np.newaxis]
+                mu_tilde = self.random_state.multivariate_normal(
+                    mu_hat.flat, v**2 * np.linalg.inv(B))[..., np.newaxis]
+                self.mu_tilde_array.append(mu_tilde)
                 estimated_reward_array = context_array.dot(mu_hat)
-                # score_array = context_array.dot(mu_tilde)
+                score_array = context_array.dot(mu_tilde)
+                j_CB = score_array - estimated_reward_array
 
-                for action_id, estimated_reward in zip(
-                    action_ids, estimated_reward_array):
+                for action_id, estimated_reward, score in zip(
+                    action_ids, estimated_reward_array, score_array):
 
-                    if np.abs(estimated_reward - user_estimated_reward[action_id]) < 
-                    # CHANGE HERE!
-                    cos_sim = user_mu_hat.T.dot(mu_hat)/(np.linalg.norm(user_mu_hat)*np.linalg.norm(mu_hat))
-                    # if cos_sim > self.gamma:
-                    if cos_sim > 0.2:
+                    if np.abs(estimated_reward - user_estimated_reward_array[action_id]) < user_CB + j_CB:
                         self.N[action_id].append(j)
 
         t2 = time.time()
@@ -131,9 +133,11 @@ class ThompCAB(BaseBandit):
 
         for action_id in self._action_storage:
             action_context = np.reshape(context[action_id], (-1,1))
+            mu_tilde_sum = np.zeros(shape=(self.context_dimension,1))
             mu_hat_sum = np.zeros(shape=(self.context_dimension, 1))
-            B_sum = np.zeros(shape=(self.context_dimension, self.context_dimension))
 
+            """
+            B_sum = np.zeros(shape=(self.context_dimension, self.context_dimension))
             for j in self.N[action_id]:
                 if len(self.N[action_id]) > 1:
                     print(len(self.N[action_id]))
@@ -148,6 +152,15 @@ class ThompCAB(BaseBandit):
             # sample this (check whether the variance is good!)
             avg_mu_tilde = self.random_state.multivariate_normal(
                 avg_mu_hat.flat, v**2 * np.linalg.inv(avg_B))[..., np.newaxis]
+            """
+
+            for j in self.N[action_id]:
+                mu_hat = model[j]['mu_hat']
+                mu_hat_sum += mu_hat
+                mu_tilde_sum += self.mu_tilde_array[j]
+
+            avg_mu_hat = mu_hat_sum / len(self.N[action_id])
+            avg_mu_tilde = mu_tilde_sum / len(self.N[action_id])
             estimated_reward[action_id] = float(action_context.T.dot(avg_mu_hat))
             score[action_id] = float(action_context.T.dot(avg_mu_tilde))
             uncertainty[action_id] = float(score[action_id] - estimated_reward[action_id])
