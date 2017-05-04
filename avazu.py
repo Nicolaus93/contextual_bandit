@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 ==============================
-Contextual bandit on MovieLens
+Contextual bandit on Avazu
 ==============================
 The script uses real-world data to conduct contextual bandit experiments. Here we use
-MovieLens 10M Dataset, which is released by GroupLens at 1/2009. Please fist pre-process
-datasets (use "movielens_preprocess.py"), and then you can run this example.
+Avazu dataset, which is released by ... . Please fist pre-process
+datasets (use ...), and then you can run this example.
 """
 
 import pandas as pd
@@ -21,11 +21,11 @@ from sklearn.multiclass import OneVsRestClassifier
 
 
 def get_data():
-    streaming_batch = pd.read_csv('datasets/movielens/streaming_batch.csv', sep='\t', names=['user_id'], engine='c')
-    user_feature = pd.read_csv('datasets/movielens/user_feature.csv', sep='\t', header=0, index_col=0, engine='c')
-    actions_id = list(pd.read_csv('datasets/movielens/actions.csv', sep='\t', header=0, engine='c')['movie_id'])
-    reward_list = pd.read_csv('datasets/movielens/reward_list.csv', sep='\t', header=0, engine='c')
-    action_context = pd.read_csv('datasets/movielens/action_context.csv', sep='\t', header=0, engine='c')
+    streaming_batch = pd.read_csv('streaming_batch.csv', sep='\t', names=['user_id'], engine='c')
+    user_feature = pd.read_csv('user_feature.csv', sep='\t', header=0, index_col=0, engine='c')
+    actions_id = list(pd.read_csv('actions.csv', sep='\t', header=0, engine='c')['movie_id'])
+    reward_list = pd.read_csv('reward_list.csv', sep='\t', header=0, engine='c')
+    action_context = pd.read_csv('action_context.csv', sep='\t', header=0, engine='c')
 
     actions = []
     for key in actions_id:

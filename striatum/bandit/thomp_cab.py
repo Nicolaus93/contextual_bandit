@@ -141,7 +141,7 @@ class ThompCAB(BaseBandit):
         uncertainty = {}
         score = {}
 
-        for action_id in self._action_storage:
+        for action_id in self._action_storage:  # is this correct (action_id in self._action_storage) ?
             action_context = np.reshape(context[action_id], (-1,1))
             mu_tilde_sum = np.zeros(shape=(self.context_dimension,1))
             mu_hat_sum = np.zeros(shape=(self.context_dimension, 1))
