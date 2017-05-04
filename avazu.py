@@ -13,88 +13,72 @@ import numpy as np
 import matplotlib.pyplot as plt
 from striatum.storage import history
 from striatum.storage import model
+from striatum.storage import action
 from striatum.bandit import linthompsamp, linucb, cab, thomp_cab
-from striatum.storage.action import Action
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.multiclass import OneVsRestClassifier
 
 
 def get_data():
-    streaming_batch = pd.read_csv('streaming_batch.csv', sep='\t', names=['user_id'], engine='c')
-    user_feature = pd.read_csv('user_feature.csv', sep='\t', header=0, index_col=0, engine='c')
-    actions_id = list(pd.read_csv('actions.csv', sep='\t', header=0, engine='c')['movie_id'])
-    reward_list = pd.read_csv('reward_list.csv', sep='\t', header=0, engine='c')
-    action_context = pd.read_csv('action_context.csv', sep='\t', header=0, engine='c')
-
-    actions = []
-    for key in actions_id:
-        # action = Action(key)
-        # actions.append(action)
-        actions.append(key)
-    return streaming_batch, user_feature, actions, reward_list, action_context
+    streaming_batch = pd.read_csv('datasets/avazu/processed10k.csv')
+    users = pd.read_csv('datasets/avazu/users.csv')
+    reward_list = pd.read_csv('datasets/avazu/reward_list.csv')
+    return streaming_batch, users, reward_list
 
 
-def policy_generation(bandit, actions):
+def policy_generation(bandit):
     historystorage = history.MemoryHistoryStorage()
     modelstorage = model.MemoryModelStorage()
+    # actionstorage = action.MemoryActionStorage()
+    actionstorage = list(range(10))
 
     if bandit == 'LinThompSamp':
-        policy = linthompsamp.LinThompSamp(historystorage, modelstorage, actions,
-                                           context_dimension=18, delta=0.1, R=0.01, epsilon=1/np.log(1000))
+        policy = linthompsamp.LinThompSamp(historystorage, modelstorage, actionstorage,
+                                           context_dimension=37, delta=0.1, R=0.01, epsilon=1/np.log(1000))
 
     elif bandit == 'LinUCB':
-        policy = linucb.LinUCB(historystorage, modelstorage, actions, alpha=0.3, context_dimension=18)
+        policy = linucb.LinUCB(historystorage, modelstorage, actionstorage, alpha=0.3, context_dimension=37)
 
     elif bandit == 'Cab':
-        policy = cab.CAB(historystorage, modelstorage, actions, 6040, context_dimension=18, minUsed=0)
+        policy = cab.CAB(historystorage, modelstorage, actionstorage, 6040, context_dimension=37, minUsed=0)
 
     elif bandit == 'random':
         policy = 0
 
     elif bandit == 'ThompCab':
-        policy = thomp_cab.ThompCAB(historystorage, modelstorage, actions, 6040, context_dimension=18, minUsed=0, 
+        policy = thomp_cab.ThompCAB(historystorage, modelstorage, actionstorage, 6040, context_dimension=37, minUsed=1, 
                                         delta=0.1, R=0.01, epsilon=1/np.log(1000))
 
     return policy
 
 
-def policy_evaluation(policy, bandit, streaming_batch, user_feature, reward_list, actions, action_context=None):
-    times = len(streaming_batch)
+def policy_evaluation(policy, bandit, streaming_batch, users, reward_list):
+    k = 10
+    times = len(streaming_batch) // k
     seq_error = np.zeros(shape=(times, 1))
-    # actions_id = [actions[i].id for i in range(len(actions))]
-    actions_id = [actions[i] for i in range(len(actions))]
-    action_features = action_context.drop('movie_name', 1)
+    action_ids = range(k)
 
     if bandit in ['LinUCB', 'LinThompSamp', 'UCB1', 'Exp3']:
         print(bandit)
         for t in range(times):
-            # features associated to the user: tags they've watched for non-top-50 movies normalized per user
-            feature = np.array(user_feature[user_feature.index == streaming_batch.iloc[t, 0]])[0]
+            user = users.iloc[t*k][0]
+            print(user) # debugging
+            full_context = {}
+            for action_id in action_ids:
+                full_context[action_id] = np.array(streaming_batch.iloc[t*k+action_id])
 
-            print(streaming_batch.iloc[t, 0]) # user_id
-            full_context = {} # for all actions: num_actions x 18
-            old_context = {}
-            for action_id in actions_id:
-                action_feature = np.asarray(action_features[(action_features['movie_id']==action_id)].iloc[:,1:])
-                full_context[action_id] = np.multiply(feature, action_feature)
-                old_context = feature
-
-            # get next (one) action to perform
+            # get next (one) action to perform and its reward
             history_id, action = policy.get_action(full_context, 1)
-            watched_list = reward_list[reward_list['user_id'] == streaming_batch.iloc[t, 0]]
-            # action is a list of recommendation (from recommendation class)
-            # if action[0]['action'].action_id not in list(watched_list['movie_id']):
-            if action[0].action not in list(watched_list['movie_id']):
-                # policy.reward(history_id, {action[0]['action'].action_id: 0.0})
+            reward = reward_list.iloc[t*k+action[0]]
+            # update policy
+            if not reward:
                 policy.reward(history_id, {action[0].action: 0.0})
                 if t == 0:
                     seq_error[t] = 1.0
                 else:
                     seq_error[t] = seq_error[t - 1] + 1.0
-
             else:
-                # policy.reward(history_id, {action[0]['action'].action_id: 1.0})
                 policy.reward(history_id, {action[0].action: 1.0})
                 if t > 0:
                     seq_error[t] = seq_error[t - 1]
@@ -102,48 +86,36 @@ def policy_evaluation(policy, bandit, streaming_batch, user_feature, reward_list
     elif bandit in ['Cab', 'ThompCab']:
         print(bandit)
         for t in range(times):
-            # features associated to the user: tags they've watched for non-top-50 movies normalized per user
-            feature = np.array(user_feature[user_feature.index == streaming_batch.iloc[t, 0]])[0]
+            user = users.iloc[t*10]['device_ip']
+            # print('user: ' + str(user)) # debugging
+            full_context = {}
+            for action_id in action_ids:
+                full_context[action_id] = np.array(streaming_batch.iloc[t*k+action_id][1:])
 
-            print(streaming_batch.iloc[t, 0])
-            full_context = {} # for all actions: num_actions x 18
-            for action_id in actions_id:
-                action_feature = np.asarray(action_features[(action_features['movie_id']==action_id)].iloc[:,1:])
-                full_context[action_id] = np.multiply(feature, action_feature)
-                # full_context[action_id] = np.concatenate([feature, action_feature.flatten()])
-
-            history_id, action = policy.get_action(full_context, streaming_batch.iloc[t, 0]-1, n_actions=1)
-            watched_list = reward_list[reward_list['user_id'] == streaming_batch.iloc[t, 0]]
-            # action is a list of recommendation (from recommendation class)
-            # if action[0]['action'].action_id not in list(watched_list['movie_id']):
-            if action[0].action not in list(watched_list['movie_id']):
-                # policy.reward(history_id, {action[0]['action'].action_id: 0.0})
-                policy.reward(history_id, {action[0].action: 0.0}, streaming_batch.iloc[t, 0]-1)
-                # policy.reward(history_id, action[0])
+            history_id, action = policy.get_action(full_context, user)
+            # print('action: ' + str(action[0].action)) # debugging again
+            reward = reward_list.iloc[t*10+action[0].action]['click']
+            # update policy
+            if not reward:
+                policy.reward(history_id, {action[0].action: 0.0}, user)
                 if t == 0:
                     seq_error[t] = 1.0
                 else:
                     seq_error[t] = seq_error[t - 1] + 1.0
-
             else:
-                # policy.reward(history_id, {action[0]['action'].action_id: 1.0})
-                policy.reward(history_id, {action[0].action: 1.0}, streaming_batch.iloc[t, 0]-1)
+                policy.reward(history_id, {action[0].action: 1.0}, user)
                 if t > 0:
                     seq_error[t] = seq_error[t - 1]
-
-        # policy.get_parameters()
 
     elif bandit == 'random':
         for t in range(times):
             action = actions_id[np.random.randint(0, len(actions)-1)]
             watched_list = reward_list[reward_list['user_id'] == streaming_batch.iloc[t, 0]]
-
             if action not in list(watched_list['movie_id']):
                 if t == 0:
                     seq_error[t] = 1.0
                 else:
                     seq_error[t] = seq_error[t - 1] + 1.0
-
             else:
                 if t > 0:
                     seq_error[t] = seq_error[t - 1]
@@ -157,21 +129,20 @@ def regret_calculation(seq_error):
     return regret
 
 def main():
-    streaming_batch, user_feature, actions, reward_list, action_context = get_data()
-    streaming_batch_small = streaming_batch.iloc[0:100]
+    streaming_batch, users, reward_list = get_data()
     # conduct regret analyses
     regret = {}
     col = ['b', 'g', 'r', 'y']
     # bandits = ['LinUCB']
     # bandits = ['Cab']
-    bandits = ['ThompCab', 'Cab', 'LinThompSamp', 'LinUCB']
+    # bandits = ['ThompCab', 'Cab', 'LinThompSamp', 'LinUCB']
+    bandits = ['ThompCab']
     # bandits = ['LinThompSamp', 'random']
     for i, bandit in enumerate(bandits):
-        policy = policy_generation(bandit, actions)
-        seq_error = policy_evaluation(policy, bandit, streaming_batch_small, user_feature, reward_list,
-                                          actions, action_context)
+        policy = policy_generation(bandit)
+        seq_error = policy_evaluation(policy, bandit, streaming_batch, users, reward_list)
         regret[bandit] = regret_calculation(seq_error)
-        plt.plot(range(len(streaming_batch_small)), regret[bandit], c=col[i], ls='-', label=bandit)
+        plt.plot(range(len(streaming_batch)//10), regret[bandit], c=col[i], ls='-', label=bandit)
         plt.xlabel('time')
         plt.ylabel('regret')
         plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)

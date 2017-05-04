@@ -157,8 +157,16 @@ def regret_calculation(seq_error):
     return regret
 
 def main():
+    """
+    streaming_batch: sequence of users to serve
+    user_feature: features for every user
+    actions: ids of the 50 actions (movies) which can be recommended
+    reward_list: rewards
+    action_context: tags of the 50 movies which can be recommended
+    """
     streaming_batch, user_feature, actions, reward_list, action_context = get_data()
     streaming_batch_small = streaming_batch.iloc[0:100]
+
     # conduct regret analyses
     regret = {}
     col = ['b', 'g', 'r', 'y']

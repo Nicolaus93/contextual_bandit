@@ -97,8 +97,6 @@ class ThompCAB(BaseBandit):
         # store mu tilde for all users
         self.mu_tilde_array = [0] * self.numUsers
 
-        t1 = time.time()
-
         # iterate over users
         for j in range(self.numUsers):
             # if user, go to next step
@@ -120,21 +118,12 @@ class ThompCAB(BaseBandit):
                 score_array = context_array.dot(mu_tilde)
                 # compute "confidence bound" and update neighborood
                 j_CB = score_array - estimated_reward_array
-                
-                # for action_id, estimated_reward, score in zip(
-                #     action_ids, estimated_reward_array, score_array):
-
-                #     if np.abs(float(estimated_reward - user_estimated_reward_array[action_id])) < user_CB[action_id] + j_CB[action_id]:
-                #         self.N[action_id].append(j)
-
                 one = np.abs(estimated_reward_array - user_estimated_reward_array)
                 two = user_CB + j_CB
-                a, _, useless = np.where(one < two)
+                # a, _, useless = np.where(one < two) # with movielens
+                a, _  = np.where(one<two) # with Avazu
                 for i in a:
                     self.N[action_ids[i]].append(j)
-
-        t2 = time.time()
-        # print(str(t2-t1) + " secs")
 
         # compute payoffs
         estimated_reward = {}
@@ -145,24 +134,6 @@ class ThompCAB(BaseBandit):
             action_context = np.reshape(context[action_id], (-1,1))
             mu_tilde_sum = np.zeros(shape=(self.context_dimension,1))
             mu_hat_sum = np.zeros(shape=(self.context_dimension, 1))
-
-            """
-            B_sum = np.zeros(shape=(self.context_dimension, self.context_dimension))
-            for j in self.N[action_id]:
-                if len(self.N[action_id]) > 1:
-                    print(len(self.N[action_id]))
-                B = model[j]['B']
-                mu_hat = model[j]['mu_hat']
-
-                mu_hat_sum += mu_hat
-                B_sum += B
-
-            avg_mu_hat = mu_hat_sum / len(self.N[action_id])
-            avg_B = B_sum / len(self.N[action_id])
-            # sample this (check whether the variance is good!)
-            avg_mu_tilde = self.random_state.multivariate_normal(
-                avg_mu_hat.flat, v**2 * np.linalg.inv(avg_B))[..., np.newaxis]
-            """
 
             for j in self.N[action_id]:
                 mu_hat = model[j]['mu_hat']
@@ -175,13 +146,10 @@ class ThompCAB(BaseBandit):
             score[action_id] = float(action_context.T.dot(avg_mu_tilde))
             uncertainty[action_id] = float(score[action_id] - estimated_reward[action_id])
 
-        t3 = time.time()
-        # print(str(t3-t2) + " secs")
-
         return estimated_reward, uncertainty, score
 
 
-    def get_action(self, context, user, n_actions=None):
+    def get_action(self, context, user, n_actions=1):
         """Return the action to perform
 
         Parameters
@@ -205,7 +173,6 @@ class ThompCAB(BaseBandit):
             Each dict contains
             {Action object, estimated_reward, uncertainty}.
         """
-
         if not isinstance(context, dict):
             raise ValueError("Thompson cab requires context dict for all actions!")
         if n_actions == -1:
