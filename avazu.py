@@ -21,9 +21,9 @@ from sklearn.multiclass import OneVsRestClassifier
 
 
 def get_data():
-    streaming_batch = pd.read_csv('datasets/avazu/processed10k.csv')
-    users = pd.read_csv('datasets/avazu/users.csv')
-    reward_list = pd.read_csv('datasets/avazu/reward_list.csv')
+    streaming_batch = pd.read_csv('datasets/avazu/processed/10k_medium.csv')
+    users = pd.read_csv('datasets/avazu/processed/users.csv')
+    reward_list = pd.read_csv('datasets/avazu/processed/reward_list.csv')
     return streaming_batch, users, reward_list
 
 
@@ -83,17 +83,13 @@ def policy_evaluation(policy, bandit, streaming_batch, users, reward_list):
 
     elif bandit in ['Cab', 'ThompCab']:
         print(bandit)
-        yes = 0
-        no = 0
         for t in range(times):
             user = users.iloc[t*k]['device_ip']
-            # print('user: ' + str(user)) # debugging
             full_context = {}
             for action_id in action_ids:
                 full_context[action_id] = np.array(streaming_batch.iloc[t*k+action_id][1:])
 
             history_id, action = policy.get_action(full_context, user)
-            # print('action: ' + str(action[0].action)) # debugging
             reward = reward_list.iloc[t*k+action[0].action]['click']
             # update policy
             if not reward:
@@ -108,8 +104,6 @@ def policy_evaluation(policy, bandit, streaming_batch, users, reward_list):
                 policy.reward(history_id, {action[0].action: 1.0}, user)
                 if t > 0:
                     seq_error[t] = seq_error[t - 1]
-        # print('yes ' + str(yes))
-        # print('no '+ str(no))
 
     elif bandit == 'random':
         for t in range(times):
