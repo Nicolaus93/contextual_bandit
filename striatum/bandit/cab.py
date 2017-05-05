@@ -91,8 +91,6 @@ class CAB(BaseBandit):
             for action_id in self._action_storage:
                 CB[j][action_id] = 0
 
-        # CB = np.zeros((self.numUsers, len(self._action_storage)))
-
         # compute neighbourood sets
         self.N = defaultdict(list)
         for action_id in self._action_storage:
@@ -131,10 +129,7 @@ class CAB(BaseBandit):
             estimated_reward[action_id] = float(action_context.T.dot(avg_theta))
             uncertainty[action_id] = float(avg_CB)
             score[action_id] = estimated_reward[action_id] + uncertainty[action_id]
-
-        start3 = time.time()
-        # print(str(start3-start2) + " sec")
-        
+ 
         return estimated_reward, uncertainty, score
 
 

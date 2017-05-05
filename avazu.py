@@ -47,7 +47,7 @@ def policy_generation(bandit):
         policy = 0
 
     elif bandit == 'ThompCab':
-        policy = thomp_cab.ThompCAB(historystorage, modelstorage, actionstorage, 6040, context_dimension=37, minUsed=1, 
+        policy = thomp_cab.ThompCAB(historystorage, modelstorage, actionstorage, 6040, context_dimension=37, minUsed=0, 
                                         delta=0.1, R=0.01, epsilon=1/np.log(1000))
 
     return policy
@@ -59,17 +59,16 @@ def policy_evaluation(policy, bandit, streaming_batch, users, reward_list):
     seq_error = np.zeros(shape=(times, 1))
     action_ids = range(k)
 
-    if bandit in ['LinUCB', 'LinThompSamp', 'UCB1', 'Exp3']:
+    if bandit in ['LinUCB', 'LinThompSamp']:
         print(bandit)
         for t in range(times):
-            user = users.iloc[t*k][0]
             full_context = {}
             for action_id in action_ids:
-                full_context[action_id] = np.array(streaming_batch.iloc[t*k+action_id])
+                full_context[action_id] = np.array(streaming_batch.iloc[t*k+action_id][1:])
 
             # get next (one) action to perform and its reward
             history_id, action = policy.get_action(full_context, 1)
-            reward = reward_list.iloc[t*k+action[0]]
+            reward = reward_list.iloc[t*k+action[0].action]['click']
             # update policy
             if not reward:
                 policy.reward(history_id, {action[0].action: 0.0})
@@ -109,13 +108,13 @@ def policy_evaluation(policy, bandit, streaming_batch, users, reward_list):
                 policy.reward(history_id, {action[0].action: 1.0}, user)
                 if t > 0:
                     seq_error[t] = seq_error[t - 1]
-        print('yes ' + str(yes))
-        print('no '+ str(no))
+        # print('yes ' + str(yes))
+        # print('no '+ str(no))
 
     elif bandit == 'random':
         for t in range(times):
             action = np.random.randint(0, 10)
-            reward = reward_list.iloc[t*k+action]
+            reward = reward_list.iloc[t*k+action]['click']
             if not reward:
                 if t == 0:
                     seq_error[t] = 1.0
@@ -140,6 +139,7 @@ def main():
     cum_regret = {}
     col = ['b', 'g', 'r', 'y']
     bandits = ['ThompCab', 'Cab', 'LinThompSamp', 'random']
+    # bandits = ['LinThompSamp']
     # bandits = ['ThompCab']
     # bandits = ['Cab']
     for i, bandit in enumerate(bandits):

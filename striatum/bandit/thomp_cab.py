@@ -221,17 +221,13 @@ class ThompCAB(BaseBandit):
 
         for action_id, reward in six.viewitems(rewards):
             action_context = np.reshape(context[action_id], (-1,1))
-
-            # # WARNING! USE ONLY WITH MOVIELENS (1 ACTION REQUIRED), OTHERWISE FIX IT
-            # user_estimated_reward = recommendations[0].estimated_reward
-            # user_score = recommendations[0].score
-            # CB = float(user_score - user_estimated_reward)
-
             user_estimated_reward = action_context.T.dot(model[user]['mu_hat'])
             user_score = action_context.T.dot(self.mu_tilde_array[user])
             user_CB = user_score - user_estimated_reward
 
-            if user_CB > self.alpha * self.gamma/4 * np.log(self.t+1):
+            # if user_CB > self.alpha * self.gamma/4 * np.log(self.t+1):
+            print(user_CB)
+            if user_CB > self.gamma/4 * np.log(self.t+1):
                 print("alone")
                 model[user]['B'] += action_context.dot(action_context.T)
                 model[user]['f'] += reward * action_context
