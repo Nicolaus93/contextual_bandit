@@ -93,8 +93,6 @@ class CAB(BaseBandit):
 
         # CB = np.zeros((self.numUsers, len(self._action_storage)))
 
-        # start1 = time.time()
-
         # compute neighbourood sets
         self.N = defaultdict(list)
         for action_id in self._action_storage:
@@ -115,22 +113,16 @@ class CAB(BaseBandit):
                     if np.abs(action_context.T.dot(user_theta-theta)) <= CB[user][action_id]+CB[j][action_id]:
                         self.N[action_id].append(j)
 
-        start2 = time.time()
-        # print(str(start2-start1)+ " sec")
-
         # compute payoffs
         estimated_reward = {}
         uncertainty = {}
         score = {}
-
         for action_id in self._action_storage:
             action_context = np.reshape(context[action_id], (-1, 1))
             theta_sum = np.zeros((self.context_dimension,1))
             CB_ag = 0
-            # theta_sum = np.copy(user_theta)
-            # CB_ag = CB[user][action_id]
             for j in self.N[action_id]:
-                # print(len(self.N[action_id]))
+                # print(len(self.N[action_id])) # debugging
                 theta_sum = theta_sum + model[j]['theta']
                 CB_ag = CB_ag + CB[j][action_id]
 
@@ -146,7 +138,7 @@ class CAB(BaseBandit):
         return estimated_reward, uncertainty, score
 
 
-    def get_action(self, context, user, n_actions=None):
+    def get_action(self, context, user, n_actions=1):
         """Return the action to perform
 
         Parameters
@@ -191,7 +183,6 @@ class CAB(BaseBandit):
                                         reverse=True)[:n_actions]
             recommendations = []
             for action_id in recommendation_ids:
-                a = score[action_id]
                 recommendations.append(self._recommendation_cls(
                     action=action_id,
                     # action=self._action_storage.get(action_id),

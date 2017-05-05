@@ -120,8 +120,7 @@ class ThompCAB(BaseBandit):
                 j_CB = score_array - estimated_reward_array
                 one = np.abs(estimated_reward_array - user_estimated_reward_array)
                 two = user_CB + j_CB
-                # a, _, useless = np.where(one < two) # with movielens
-                a, _  = np.where(one<two) # with Avazu
+                a = np.where(one<two)[0]
                 for i in a:
                     self.N[action_ids[i]].append(j)
 
@@ -193,7 +192,6 @@ class ThompCAB(BaseBandit):
                                         reverse=True)[:n_actions]
             recommendations = []
             for action_id in recommendation_ids:
-                a = score[action_id]
                 recommendations.append(self._recommendation_cls(
                     action=action_id,
                     # action=self._action_storage.get(action_id),

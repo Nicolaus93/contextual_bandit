@@ -169,6 +169,7 @@ def main():
 
     # conduct regret analyses
     regret = {}
+    cum_regret = {}
     col = ['b', 'g', 'r', 'y']
     # bandits = ['LinUCB']
     # bandits = ['Cab']
@@ -179,12 +180,14 @@ def main():
         seq_error = policy_evaluation(policy, bandit, streaming_batch_small, user_feature, reward_list,
                                           actions, action_context)
         regret[bandit] = regret_calculation(seq_error)
-        plt.plot(range(len(streaming_batch_small)), regret[bandit], c=col[i], ls='-', label=bandit)
+        cum_regret[bandit] = seq_error
+        # plt.plot(range(len(streaming_batch_small)), regret[bandit], c=col[i], ls='-', label=bandit)
+        plt.plot(range(len(streaming_batch_small)), cum_regret[bandit], c=col[i], ls='-', label=bandit)
         plt.xlabel('time')
         plt.ylabel('regret')
         plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
         axes = plt.gca()
-        axes.set_ylim([0, 1])
+        # axes.set_ylim([0, 1])
         plt.title("Regret Bound with respect to T")
     plt.show()
 
