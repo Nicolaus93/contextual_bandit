@@ -154,6 +154,7 @@ class LinThompSamp(BaseBandit):
             n_actions = self._action_storage.count()
 
         estimated_reward, uncertainty, score = self._linthompsamp_score(context)
+        # print(score)
 
         # if n_actions is None:
         #     recommendation_id = max(score, key=score.get)

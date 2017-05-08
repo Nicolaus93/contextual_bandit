@@ -48,7 +48,7 @@ rewards.to_csv('processed/reward_list.csv')
 col = ['C1', 'banner_pos', 'site_category', 'app_category', 'device_type', 'device_conn_type', 'C15', 'C16', 'C18']
 final = pd.concat([pd.get_dummies(processed[c]) for c in col], axis=1)
 final = final.div(final.sum(axis=1), axis=0) # normalize
-final.to_csv('processed/10k_medium.csv')
+final.to_csv('processed/processed10k.csv')
 # define users
 users = pd.DataFrame(processed['device_ip'])
 # reassign id to users
