@@ -43,15 +43,15 @@ random.shuffle(l)
 processed = pd.concat(l)
 # define rewards
 rewards = pd.DataFrame(processed['click'])
-rewards.to_csv('processed/reward_list.csv')
+rewards.to_csv('processed/medium/reward_list.csv')
 # build the final dataset
 col = ['C1', 'banner_pos', 'site_category', 'app_category', 'device_type', 'device_conn_type', 'C15', 'C16', 'C18']
 final = pd.concat([pd.get_dummies(processed[c]) for c in col], axis=1)
 final = final.div(final.sum(axis=1), axis=0) # normalize
-final.to_csv('processed/processed10k.csv')
+final.to_csv('processed/medium/processed.csv')
 # define users
 users = pd.DataFrame(processed['device_ip'])
 # reassign id to users
 le.fit(list(users['device_ip']))
 users['device_ip'] = le.transform(users['device_ip'])
-users.to_csv('processed/users.csv')
+users.to_csv('processed/medium/users.csv')

@@ -227,7 +227,7 @@ class ThompCAB(BaseBandit):
 
             # if user_CB > self.alpha * self.gamma/4 * np.log(self.t+1):
             if user_CB > self.gamma/4 * np.log(self.t+1):
-                print("alone")
+                # print("alone")
                 model[user]['B'] += action_context.dot(action_context.T)
                 model[user]['f'] += reward * action_context
                 model[user]['mu_hat'] = np.linalg.inv(model[user]['B']).dot(model[user]['f'])
@@ -240,7 +240,8 @@ class ThompCAB(BaseBandit):
                         score = action_context.T.dot(mu_tilde)
                         j_CB = float(score - estimated_reward)
                         # update model
-                        if j_CB <= self.alpha * self.gamma/4 * np.log(self.t+1):
+                        if j_CB <= self.gamma/4 * np.log(self.t+1):
+                        # if j_CB <= self.alpha * self.gamma/4 * np.log(self.t+1):
                             model[j]['B'] += action_context.dot(action_context.T)
                             model[j]['f'] += reward * action_context
                             model[j]['mu_hat'] = np.linalg.inv(model[j]['B']).dot(model[j]['f'])

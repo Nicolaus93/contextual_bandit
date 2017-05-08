@@ -18,12 +18,13 @@ from striatum.bandit import linthompsamp, linucb, cab, thomp_cab
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.multiclass import OneVsRestClassifier
+import time
 
 
 def get_data():
-    streaming_batch = pd.read_csv('datasets/avazu/processed/processed10k.csv')
-    users = pd.read_csv('datasets/avazu/processed/users.csv')
-    reward_list = pd.read_csv('datasets/avazu/processed/reward_list.csv')
+    streaming_batch = pd.read_csv('datasets/avazu/processed/medium/processed.csv')
+    users = pd.read_csv('datasets/avazu/processed/medium/users.csv')
+    reward_list = pd.read_csv('datasets/avazu/processed/medium/reward_list.csv')
     return streaming_batch, users, reward_list
 
 
@@ -41,10 +42,10 @@ def policy_generation(bandit, dim):
         policy = linucb.LinUCB(historystorage, modelstorage, actionstorage, alpha=0.3, context_dimension=dim)
 
     elif bandit == 'Cab':
-        policy = cab.CAB(historystorage, modelstorage, actionstorage, 6040, context_dimension=dim, minUsed=0)
+        policy = cab.CAB(historystorage, modelstorage, actionstorage, 6040, context_dimension=dim, minUsed=1)
 
     elif bandit == 'ThompCab':
-        policy = thomp_cab.ThompCAB(historystorage, modelstorage, actionstorage, 6040, context_dimension=dim, minUsed=0, 
+        policy = thomp_cab.ThompCAB(historystorage, modelstorage, actionstorage, 6040, context_dimension=dim, minUsed=1,
                                         delta=0.1, R=0.01, epsilon=1/np.log(1000))
 
     elif bandit == 'random':
@@ -83,8 +84,9 @@ def policy_evaluation(policy, bandit, streaming_batch, users, reward_list):
                     seq_error[t] = seq_error[t - 1]
 
     elif bandit in ['Cab', 'ThompCab']:
+        start = time.time()
         for t in range(times):
-            if t%10==0:
+            if t%100==0:
                 print('time: ' + str(t)) # debugging
             user = users.iloc[t*k]['device_ip']
             full_context = {}
@@ -104,6 +106,8 @@ def policy_evaluation(policy, bandit, streaming_batch, users, reward_list):
                 policy.reward(history_id, {action[0].action: 1.0}, user)
                 if t > 0:
                     seq_error[t] = seq_error[t - 1]
+        end = time.time()
+        print('time: ' + str(end-start) + 'sec')
 
     elif bandit == 'random':
         for t in range(times):

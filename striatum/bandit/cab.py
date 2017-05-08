@@ -215,7 +215,8 @@ class CAB(BaseBandit):
             # print("CB: " + str(CB))
             # print("threshold: " + str(self.alpha * self.gamma/4 * np.log(self.t+1)))
 
-            if CB > self.alpha * self.gamma/4 * np.log(self.t+1):
+            # if CB > self.alpha * self.gamma/4 * np.log(self.t+1):
+            if CB > self.gamma/4 * np.log(self.t+1):
                 # print("alone")
                 action_context = np.reshape(context[action_id], (-1,1))
                 model[user]['A'] += action_context.dot(action_context.T)
@@ -228,8 +229,9 @@ class CAB(BaseBandit):
                         CB_j = float(self.alpha * np.sqrt(action_context.T
                                          .dot(model[j]['A_inv'])
                                          .dot(action_context))) * np.log(self.t+1)
-                        if CB_j <= self.alpha * self.gamma/4 * np.log(self.t+1):
-                            print(len(self.N[action_id]))
+                        # if CB_j <= self.alpha * self.gamma/4 * np.log(self.t+1):
+                        if CB_j <= self.gamma/4 * np.log(self.t+1):
+                            # print(len(self.N[action_id]))
                             action_context = np.reshape(context[action_id], (-1,1))
                             model[j]['A'] += action_context.dot(action_context.T)
                             model[j]['A_inv'] = np.linalg.inv(model[j]['A'])
