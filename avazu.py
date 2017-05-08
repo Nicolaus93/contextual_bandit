@@ -54,13 +54,13 @@ def policy_generation(bandit):
 
 
 def policy_evaluation(policy, bandit, streaming_batch, users, reward_list):
+    print(bandit)
     k = 10
     times = len(streaming_batch) // k
     seq_error = np.zeros(shape=(times, 1))
     action_ids = range(k)
 
     if bandit in ['LinUCB', 'LinThompSamp']:
-        print(bandit)
         for t in range(times):
             full_context = {}
             for action_id in action_ids:
@@ -82,7 +82,6 @@ def policy_evaluation(policy, bandit, streaming_batch, users, reward_list):
                     seq_error[t] = seq_error[t - 1]
 
     elif bandit in ['Cab', 'ThompCab']:
-        print(bandit)
         for t in range(times):
             user = users.iloc[t*k]['device_ip']
             full_context = {}
