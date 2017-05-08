@@ -92,14 +92,12 @@ def policy_evaluation(policy, bandit, streaming_batch, users, reward_list):
             reward = reward_list.iloc[t*k+action[0].action]['click']
             # update policy
             if not reward:
-                no += 1
                 policy.reward(history_id, {action[0].action: 0.0}, user)
                 if t == 0:
                     seq_error[t] = 1.0
                 else:
                     seq_error[t] = seq_error[t - 1] + 1.0
             else:
-                yes += 1
                 policy.reward(history_id, {action[0].action: 1.0}, user)
                 if t > 0:
                     seq_error[t] = seq_error[t - 1]

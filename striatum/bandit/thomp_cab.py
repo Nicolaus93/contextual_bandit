@@ -226,7 +226,6 @@ class ThompCAB(BaseBandit):
             user_CB = user_score - user_estimated_reward
 
             # if user_CB > self.alpha * self.gamma/4 * np.log(self.t+1):
-            print(user_CB)
             if user_CB > self.gamma/4 * np.log(self.t+1):
                 print("alone")
                 model[user]['B'] += action_context.dot(action_context.T)
