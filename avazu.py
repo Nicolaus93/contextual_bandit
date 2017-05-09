@@ -22,9 +22,12 @@ import time
 
 
 def get_data():
-    streaming_batch = pd.read_csv('datasets/avazu/processed/medium/processed.csv')
-    users = pd.read_csv('datasets/avazu/processed/medium/users.csv')
-    reward_list = pd.read_csv('datasets/avazu/processed/medium/reward_list.csv')
+    # streaming_batch = pd.read_csv('datasets/avazu/processed/medium/processed10k.csv')
+    # users = pd.read_csv('datasets/avazu/processed/medium/users.csv')
+    # reward_list = pd.read_csv('datasets/avazu/processed/medium/reward_list.csv')
+    streaming_batch = pd.read_csv('datasets/avazu/processed/filtered100/processed.csv')
+    users = pd.read_csv('datasets/avazu/processed/filtered100/users.csv')
+    reward_list = pd.read_csv('datasets/avazu/processed/filtered100/reward_list.csv')
     return streaming_batch, users, reward_list
 
 
@@ -133,12 +136,14 @@ def regret_calculation(seq_error):
 def main():
     streaming_batch, users, reward_list = get_data()
     d = streaming_batch.shape[1]-1
+    print("rounds: ")
+    print(streaming_batch.shape[0]//10)
     # conduct regret analyses
     regret = {}
     cum_regret = {}
     col = ['b', 'g', 'r', 'y']
     bandits = ['ThompCab', 'Cab', 'LinThompSamp', 'random']
-    # bandits = ['LinThompSamp', 'random']
+    bandits = ['LinThompSamp', 'random']
     # bandits = ['ThompCab']
     # bandits = ['Cab']
     for i, bandit in enumerate(bandits):
