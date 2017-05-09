@@ -5,6 +5,7 @@ import category_encoders as ce
 import random
 import datetime
 import os
+import argparse
 
 def isWeekend(d):
     """
@@ -47,6 +48,7 @@ def hashing_feat(df, n, cols):
 
 def build_dataset(df, k):
     """
+    TODO 
     """
     print("building dataset")
     grouped = df.groupby(['device_ip']) # group by users
@@ -55,10 +57,14 @@ def build_dataset(df, k):
     for name, group in grouped:
         user_interactions = group.groupby('click') # there will be 2 groups: 0/1
         try:
-            ones = user_interactions.get_group(1)
             zeros = user_interactions.get_group(0)
         except:
-            print('not enough ones/zeros')
+            print('    not enough /zeros')
+            continue
+        try:
+            ones = user_interactions.get_group(1)
+        except:
+            print('    not enough ones')
             continue
         # compute the number of splits per user and split the interactions
         num_of_splits = len(zeros)//k
@@ -91,9 +97,18 @@ def one_hot_enc(df):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Preprocess a dataset.')
+    parser.add_argument(dest='dataset', metavar='dataset', type=str, nargs=1,
+                        help='the dataset to preprocess')
+    parser.add_argument('-k', dest='k', metavar='items_per_round', type=int, nargs=1,
+                        help='number of items per round')
+    parser.add_argument('-d', dest='n_feat', metavar='hashed_features', type=int, nargs=1,
+                        help='number of features after hashing')
 
-    dataset = 'filtered100_10k.csv'
-
+    args = parser.parse_args()
+    dataset = args.dataset[0]
+    k = args.k[0]
+    n_feat = args.n_feat[0]
     print("reading dataset")
     df = pd.read_csv(dataset)
     print("Unique users: " + str(len(df['device_ip'].unique())))
@@ -107,16 +122,18 @@ if __name__ == "__main__":
     col = ['C1', 'banner_pos', 'site_id', 'site_domain', 'site_category', 'app_id', 'app_domain', \
           'app_category', 'device_id', 'device_model', 'device_type', 'device_conn_type', \
           'C14', 'C15', 'C16', 'C17', 'C18', 'C19', 'C20', 'C21']
-    df = hashing_feat(df, 50, col)
+    df = hashing_feat(df, n_feat, col)
 
     # building datasets
-    df = build_dataset(df, 10)
+    df = build_dataset(df, k)
     rewards = pd.DataFrame(df['click'])
     users = pd.DataFrame(df['device_ip'])
 
     # one hot encoding
     df = one_hot_enc(df)
 
+    (rows, cols) = df.shape
+    print("The final dataset contains: \n    -{} rows \n    -{} columns".format(rows,cols))
     # redefine users
     le = LabelEncoder()
     le.fit(list(users['device_ip']))
