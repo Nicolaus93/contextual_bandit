@@ -4,8 +4,8 @@
 Contextual bandit on Avazu
 ==============================
 The script uses real-world data to conduct contextual bandit experiments. Here we use
-Avazu dataset, which is released by ... . Please fist pre-process
-datasets (use ...), and then you can run this example.
+Avazu dataset, which was released by Avazu for a Kaggle competition. Please fist pre-process
+datasets (use preprocesse_hashing.py), and then you can run this example.
 """
 
 import pandas as pd
@@ -15,27 +15,25 @@ from striatum.storage import history
 from striatum.storage import model
 from striatum.storage import action
 from striatum.bandit import linthompsamp, linucb, cab, thomp_cab
-from sklearn.naive_bayes import MultinomialNB
-from sklearn.linear_model import LogisticRegression
-from sklearn.multiclass import OneVsRestClassifier
 import time
+import os
+import argparse
 
-
-def get_data():
-    # streaming_batch = pd.read_csv('datasets/avazu/processed/medium/processed10k.csv')
-    # users = pd.read_csv('datasets/avazu/processed/medium/users.csv')
-    # reward_list = pd.read_csv('datasets/avazu/processed/medium/reward_list.csv')
-    streaming_batch = pd.read_csv('datasets/avazu/processed/filtered100/processed.csv')
-    users = pd.read_csv('datasets/avazu/processed/filtered100/users.csv')
-    reward_list = pd.read_csv('datasets/avazu/processed/filtered100/reward_list.csv')
+def get_data(dataset):
+    file_path = os.getcwd()
+    d = os.path.join(os.sep, file_path, 'datasets/avazu')
+    directory = os.path.join(os.sep, d, dataset)
+    streaming_batch = pd.read_csv(os.path.join(os.sep, directory, 'processed.csv'))
+    users = pd.read_csv(os.path.join(os.sep, directory, 'users.csv'))
+    reward_list = pd.read_csv(os.path.join(os.sep, directory, 'reward_list.csv'))
     return streaming_batch, users, reward_list
 
 
-def policy_generation(bandit, dim):
+def policy_generation(bandit, dim, k):
     historystorage = history.MemoryHistoryStorage()
     modelstorage = model.MemoryModelStorage()
     # actionstorage = action.MemoryActionStorage()
-    actionstorage = list(range(10))
+    actionstorage = list(range(k))
 
     if bandit == 'LinThompSamp':
         policy = linthompsamp.LinThompSamp(historystorage, modelstorage, actionstorage,
@@ -57,9 +55,8 @@ def policy_generation(bandit, dim):
     return policy
 
 
-def policy_evaluation(policy, bandit, streaming_batch, users, reward_list):
+def policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k):
     print(bandit)
-    k = 10
     times = len(streaming_batch) // k
     seq_error = np.zeros(shape=(times, 1))
     action_ids = range(k)
@@ -134,10 +131,19 @@ def regret_calculation(seq_error):
     return regret
 
 def main():
-    streaming_batch, users, reward_list = get_data()
+    parser = argparse.ArgumentParser(description='Multi Armed Bandit algorithms.')
+    parser.add_argument(dest='dataset', metavar='dataset', type=str, nargs=1,
+                        help='the dataset to use')
+    parser.add_argument(dest='k', metavar='items_per_round', type=int, nargs=1,
+                        help='number of items per round')
+
+    args = parser.parse_args()
+    dataset = args.dataset[0]
+    k = args.k[0]
+    streaming_batch, users, reward_list = get_data(dataset)
     d = streaming_batch.shape[1]-1
     print("rounds: ")
-    print(streaming_batch.shape[0]//10)
+    print(streaming_batch.shape[0]//k)
     # conduct regret analyses
     regret = {}
     cum_regret = {}
@@ -147,11 +153,11 @@ def main():
     # bandits = ['ThompCab']
     # bandits = ['Cab']
     for i, bandit in enumerate(bandits):
-        policy = policy_generation(bandit, d)
-        seq_error = policy_evaluation(policy, bandit, streaming_batch, users, reward_list)
+        policy = policy_generation(bandit, d, k)
+        seq_error = policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k)
         regret[bandit] = regret_calculation(seq_error)
         cum_regret[bandit] = seq_error
-        plt.plot(range(len(streaming_batch)//10), cum_regret[bandit], c=col[i], ls='-', label=bandit)
+        plt.plot(range(len(streaming_batch)//k), cum_regret[bandit], c=col[i], ls='-', label=bandit)
         plt.xlabel('time')
         plt.ylabel('regret')
         plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
