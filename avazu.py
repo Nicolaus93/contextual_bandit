@@ -37,7 +37,7 @@ def policy_generation(bandit, dim, k):
 
     if bandit == 'LinThompSamp':
         policy = linthompsamp.LinThompSamp(historystorage, modelstorage, actionstorage,
-                                           context_dimension=dim, delta=0.1, R=0.01, epsilon=1/np.log(1000))
+                                           context_dimension=dim, delta=0.1, R=0.01, epsilon=1/np.log(k))
 
     elif bandit == 'LinUCB':
         policy = linucb.LinUCB(historystorage, modelstorage, actionstorage, alpha=0.3, context_dimension=dim)
@@ -47,7 +47,7 @@ def policy_generation(bandit, dim, k):
 
     elif bandit == 'ThompCab':
         policy = thomp_cab.ThompCAB(historystorage, modelstorage, actionstorage, 6040, context_dimension=dim, minUsed=1,
-                                        delta=0.1, R=0.01, epsilon=1/np.log(1000))
+                                        delta=0.1, R=0.01, epsilon=1/np.log(k))
 
     elif bandit == 'random':
         policy = 0
@@ -148,8 +148,8 @@ def main():
     regret = {}
     cum_regret = {}
     col = ['b', 'g', 'r', 'y']
-    bandits = ['ThompCab', 'Cab', 'LinThompSamp', 'random']
-    bandits = ['LinThompSamp', 'random']
+    bandits = ['ThompCab', 'LinThompSamp', 'random']
+    # bandits = ['LinThompSamp', 'random']
     # bandits = ['ThompCab']
     # bandits = ['Cab']
     for i, bandit in enumerate(bandits):

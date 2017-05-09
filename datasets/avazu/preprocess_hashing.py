@@ -59,7 +59,7 @@ def build_dataset(df, k):
         try:
             zeros = user_interactions.get_group(0)
         except:
-            print('    not enough /zeros')
+            print('    not enough zeros')
             continue
         try:
             ones = user_interactions.get_group(1)
@@ -111,7 +111,7 @@ if __name__ == "__main__":
     n_feat = args.n_feat[0]
     print("reading dataset")
     df = pd.read_csv(dataset)
-    print("Unique users: " + str(len(df['device_ip'].unique())))
+    print("Unique users: " + str(len(df['device_id'].unique())))
 
     # feature engineering
     df = df.assign(day=pd.Series(df['hour'].apply(isWeekend)).values)
@@ -121,7 +121,10 @@ if __name__ == "__main__":
     # Hashing features
     col = ['C1', 'banner_pos', 'site_id', 'site_domain', 'site_category', 'app_id', 'app_domain', \
           'app_category', 'device_id', 'device_model', 'device_type', 'device_conn_type', \
-          'C14', 'C15', 'C16', 'C17', 'C18', 'C19', 'C20', 'C21']
+          'C14', 'C15', 'C16', 'C17', 'C18', 'C19', 'C20', 'C21', 'hour', 'day']
+    col = ['site_id', 'site_domain', 'site_category', 'app_id', 'app_domain', \
+          'app_category', 'device_model', \
+          'C14', 'C17', 'C19', 'C20', 'C21']
     df = hashing_feat(df, n_feat, col)
 
     # building datasets
