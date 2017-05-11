@@ -5,7 +5,7 @@ Contextual bandit on Avazu
 ==============================
 The script uses real-world data to conduct contextual bandit experiments. Here we use
 Avazu dataset, which was released by Avazu for a Kaggle competition. Please fist pre-process
-datasets (use preprocesse_hashing.py), and then you can run this example.
+datasets (use preprocess_hashing.py), and then you can run this example.
 """
 
 import pandas as pd
@@ -69,7 +69,6 @@ def policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k):
 
             # get next (one) action to perform and its reward
             history_id, action = policy.get_action(full_context, 1)
-            # print(action[0].action)
             reward = reward_list.iloc[t*k+action[0].action]['click']
             # update policy
             if not reward:
@@ -133,12 +132,14 @@ def main():
     parser = argparse.ArgumentParser(description='Multi Armed Bandit algorithms.')
     parser.add_argument(dest='dataset', metavar='dataset', type=str, nargs=1,
                         help='the dataset to use')
-    parser.add_argument(dest='k', metavar='items_per_round', type=int, nargs=1,
-                        help='number of items per round')
 
     args = parser.parse_args()
     dataset = args.dataset[0]
-    k = args.k[0]
+    info_path = 'datasets/avazu/' + dataset + '/info.txt'
+    info_file = os.path.join(os.sep, os.getcwd(), info_path)
+    for i, line in enumerate(open(info_file, 'r')):
+        if i == 0:
+            k = int(line)
     streaming_batch, users, reward_list = get_data(dataset)
     streaming_batch = streaming_batch.iloc[:50000]
     d = streaming_batch.shape[1]-1
@@ -147,22 +148,19 @@ def main():
     regret = {}
     cum_regret = {}
     col = ['b', 'g', 'r', 'y']
-    bandits = ['Cab', 'ThompCab', 'LinThompSamp', 'random']
+    # bandits = ['Cab', 'ThompCab', 'LinThompSamp', 'random']
+    bandits = ['ThompCab', 'LinThompSamp']
     for i, bandit in enumerate(bandits):
         policy = policy_generation(bandit, d, k)
-        try:
-            seq_error = policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k)
-            regret[bandit] = regret_calculation(seq_error)
-            cum_regret[bandit] = seq_error
-            plt.plot(range(len(streaming_batch)//k), cum_regret[bandit], c=col[i], ls='-', label=bandit)
-            plt.xlabel('time')
-            plt.ylabel('regret')
-            plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
-            axes = plt.gca()
-            plt.title("Regret Bound with respect to T")
-        except e:
-            print(e)
-            continue
+        seq_error = policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k)
+        regret[bandit] = regret_calculation(seq_error)
+        cum_regret[bandit] = seq_error
+        plt.plot(range(len(streaming_batch)//k), cum_regret[bandit], c=col[i], ls='-', label=bandit)
+        plt.xlabel('time')
+        plt.ylabel('regret')
+        plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+        axes = plt.gca()
+        plt.title("Regret Bound with respect to T")
     plt.show()
 
 
