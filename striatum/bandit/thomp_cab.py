@@ -16,6 +16,17 @@ from ..utils import get_random_state
 
 LOGGER = logging.getLogger(__name__)
 
+def sherman_morrison(M_inv, x):
+    """
+    Input:
+        - x, column vector
+        - M_inv, inverse of M matrix
+    Output:
+        (M + x*x')^-1 computed using Sherman-Morrison formula
+    """
+    return M_inv - M_inv.dot(x.dot(x.T.dot(M_inv)))/(1+x.T.dot(M_inv.dot(x)))
+
+
 class ThompCAB(BaseBandit):
     r"""
     Context aware clustering of bandits using Thompson Sampling
@@ -27,7 +38,7 @@ class ThompCAB(BaseBandit):
     """
 
     def __init__(self, history_storage, model_storage, action_storage, users,
-                recommendation_cls=None, context_dimension=128, gamma=0.5, alpha=0.5,
+                recommendation_cls=None, context_dimension=128, gamma=0.5,
                 minUsed=0, p=0.2, random_state=None, delta=0.5, R=0.01, epsilon=0.5):
 
         super(ThompCAB, self).__init__(history_storage, model_storage,
@@ -35,7 +46,7 @@ class ThompCAB(BaseBandit):
 
         self.numUsers = users # number of Users
         self.context_dimension = context_dimension
-        self.alpha = alpha
+        # self.alpha = alpha
         self.minUsed = minUsed
         self.gamma = gamma
         self.p = p
