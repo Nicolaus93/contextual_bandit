@@ -16,16 +16,6 @@ from ..utils import get_random_state
 
 LOGGER = logging.getLogger(__name__)
 
-def sherman_morrison(M_inv, x):
-    """
-    Input:
-        - x, column vector
-        - M_inv, inverse of M matrix
-    Output:
-        (M + x*x')^-1 computed using Sherman-Morrison formula
-    """
-    return M_inv - M_inv.dot(x.dot(x.T.dot(M_inv)))/(1+x.T.dot(M_inv.dot(x)))
-
 
 class ThompCAB(BaseBandit):
     r"""
@@ -80,6 +70,7 @@ class ThompCAB(BaseBandit):
         model['B'] = np.identity(self.context_dimension)
         model['mu_hat'] = np.zeros(shape=(self.context_dimension, 1))
         model['f'] = np.zeros(shape=(self.context_dimension, 1))
+        model['B_inv'] = np.identity(self.context_dimension)
         for i in range(self.numUsers):
             user_models[i] = copy.deepcopy(model)
         return user_models
@@ -100,8 +91,9 @@ class ThompCAB(BaseBandit):
         self.N = defaultdict(list)
         user_B = model[user]['B']
         user_mu_hat = model[user]['mu_hat']
+        user_B_inv = model[user]['B_inv']
         user_mu_tilde = self.random_state.multivariate_normal(
-            user_mu_hat.flat, v**2 * np.linalg.inv(user_B))[..., np.newaxis]
+            user_mu_hat.flat, v**2 * user_B_inv)[..., np.newaxis]
         user_estimated_reward_array = context_array.dot(user_mu_hat)
         user_score_array = context_array.dot(user_mu_tilde)
         user_CB = user_score_array - user_estimated_reward_array
@@ -120,8 +112,9 @@ class ThompCAB(BaseBandit):
                 # retrieve j-th user parameters and sample mu tilde
                 B = model[j]['B']
                 mu_hat = model[j]['mu_hat']
+                B_inv = model[j]['B_inv']
                 mu_tilde = self.random_state.multivariate_normal(
-                    mu_hat.flat, v**2 * np.linalg.inv(B))[..., np.newaxis]
+                    mu_hat.flat, v**2 * B_inv)[..., np.newaxis]
                 # store mu tilde for later
                 self.mu_tilde_array[j] = mu_tilde
                 # compute scores
@@ -222,11 +215,6 @@ class ThompCAB(BaseBandit):
         context = (self._history_storage
                    .get_unrewarded_history(history_id)
                    .context)
-        # list of recommedations
-        recommendations = (self._history_storage
-                   .get_unrewarded_history(history_id)
-                   .recommendations)
-
         # Update the model
         model = self._model_storage.get_model()
 
@@ -236,31 +224,28 @@ class ThompCAB(BaseBandit):
             user_score = action_context.T.dot(self.mu_tilde_array[user])
             user_CB = user_score - user_estimated_reward
 
-            # if user_CB > self.alpha * self.gamma/4 * np.log(self.t+1):
             if user_CB > self.gamma/4 * np.log(self.t+1):
-                # print("alone")
-                model[user]['B'] += action_context.dot(action_context.T)
-                model[user]['f'] += reward * action_context
-                model[user]['mu_hat'] = np.linalg.inv(model[user]['B']).dot(model[user]['f'])
+                update(model, user, action_context, reward)
             else:
                 for action_id, reward in six.viewitems(rewards):
+                    # update user first!
+                    update(model, user, action_context, reward)
                     for j in self.N[action_id]:
-                        mu_hat = model[j]['mu_hat']
-                        mu_tilde = self.mu_tilde_array[j]
-                        estimated_reward = action_context.T.dot(mu_hat)
-                        score = action_context.T.dot(mu_tilde)
+                        if j == user:
+                            # user already updated!
+                            continue
+                        estimated_reward = action_context.T.dot(model[j]['mu_hat'])
+                        score = action_context.T.dot(self.mu_tilde_array[j])
                         j_CB = float(score - estimated_reward)
                         # update model
                         if j_CB <= self.gamma/4 * np.log(self.t+1):
-                        # if j_CB <= self.alpha * self.gamma/4 * np.log(self.t+1):
-                            model[j]['B'] += action_context.dot(action_context.T)
-                            model[j]['f'] += reward * action_context
-                            model[j]['mu_hat'] = np.linalg.inv(model[j]['B']).dot(model[j]['f'])
+                            update(model, j, action_context, reward)
 
             self._model_storage.save_model(model)
 
         # Update the history
         self._history_storage.add_reward(history_id, rewards)
+
 
     def add_action(self, actions):
         """
@@ -272,7 +257,30 @@ class ThompCAB(BaseBandit):
         """
         return
 
+def update(model, user, x, reward):
+    """
+    Update the model.
 
+    Input: 
+        - model: (dict) containing all models
+        - user: (int) id of the user
+        - x: (np.array) context of the action performed
+    """
+    model[user]['B'] += x.dot(x.T)
+    model[user]['f'] += reward * x
+    B_inv = sherman_morrison(model[user]['B_inv'], x)
+    model[user]['B_inv'] = B_inv
+    model[user]['mu_hat'] = B_inv.dot(model[user]['f'])
+
+def sherman_morrison(M_inv, x):
+    """
+    Input:
+        - x: (np.array) column vector
+        - M_inv: (np.array) inverse of M matrix
+    Output:
+        (M + x*x')^-1 computed using Sherman-Morrison formula
+    """
+    return M_inv - M_inv.dot(x.dot(x.T.dot(M_inv)))/(1+x.T.dot(M_inv.dot(x)))
 
 
 
