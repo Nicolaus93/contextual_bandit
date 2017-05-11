@@ -212,8 +212,6 @@ class CAB(BaseBandit):
             CB = float(self.alpha * np.sqrt(action_context.T
                                      .dot(model[user]['A_inv'])
                                      .dot(action_context))) * np.log(self.t+1)
-            # print("CB: " + str(CB))
-            # print("threshold: " + str(self.alpha * self.gamma/4 * np.log(self.t+1)))
 
             # if CB > self.alpha * self.gamma/4 * np.log(self.t+1):
             if CB > self.gamma/4 * np.log(self.t+1):
