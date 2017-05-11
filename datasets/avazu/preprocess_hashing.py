@@ -41,7 +41,7 @@ def hashing_feat(df, n, cols):
     Output:
         - dataset: (pandas.DataFrame) hashed dataset
     """
-    print('Hashing features')
+    print('Hashing features...')
     y = df['click']
     enc = ce.HashingEncoder(cols=cols, n_components=n).fit(df, y)
     return enc.transform(df)
@@ -50,7 +50,7 @@ def build_dataset(df, k):
     """
     TODO 
     """
-    print('building dataset')
+    print('building dataset...')
     grouped = df.groupby(['device_ip']) # group by users
     k = k-1 # number of 'no' clicks per round
     l = [] # list containing every round
@@ -91,7 +91,7 @@ def one_hot_enc(df, old_cols):
     Output:
         normalized one hot encoded dataset (pandas.DataFrame)
     """
-    print('One-hot encoding')
+    print('One-hot encoding...')
     col = [item for item in df.columns if item not in old_cols]
     df = pd.concat([pd.get_dummies(df[c]) for c in col], axis=1) # one hot encoding
     return df.div(df.sum(axis=1), axis=0) # normalize
@@ -110,10 +110,11 @@ if __name__ == '__main__':
     dataset = args.dataset[0]
     k = args.k[0]
     n_feat = args.n_feat[0]
-    print('reading dataset')
+    print('reading dataset...')
     df = pd.read_csv(dataset)
     df = df.loc[(df['site_id']=='1fbe01fe') & (df['app_id']=='ecad2386')]
-    print('Unique users: ' + str(len(df['device_id'].unique())))
+    usr_msg = 'There are ' + str(len(df['device_ip'].unique())) + ' unique users.'
+    print(usr_msg)
 
     # feature engineering
     df = df.assign(day=pd.Series(df['hour'].apply(isWeekend)).values)
@@ -141,16 +142,17 @@ if __name__ == '__main__':
     # one hot encoding
     df = one_hot_enc(df, old_cols)
 
-    (rows, cols) = df.shape
-    print('The final dataset contains: \n    -{} rows \n    -{} columns'.format(rows,cols))
-    print('It looks like this:')
-    print(df.head())
     # redefine users
     le = LabelEncoder()
     le.fit(list(users['device_ip']))
     users['device_ip'] = le.transform(users['device_ip'])
-    sorted(users['device_ip'].unique())
-    
+
+    # some info
+    (rows, cols) = df.shape
+    msg = 'The preprocessed dataset contains: \n    -{} rows \n    -{} columns.\n It looks like this:\n'.format(rows,cols)
+    print(msg)
+    print(df.head())
+
     # save everything
     print('saving')
     file_path = os.getcwd()
@@ -163,4 +165,8 @@ if __name__ == '__main__':
     df.to_csv(os.path.join(os.sep, directory, 'processed.csv'))
     users.to_csv(os.path.join(os.sep, directory, 'users.csv'))
     f = open(os.path.join(os.sep, directory, 'info.txt'), 'w')
-    f.write(str(k))
+    f.write(str(k) + ' items per round\n')
+    f.write(usr_msg)
+    f.write('\n')
+    f.write(msg)
+    f.write(df.head().to_string())
