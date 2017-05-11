@@ -32,7 +32,6 @@ def get_data(dataset):
 def policy_generation(bandit, dim, k):
     historystorage = history.MemoryHistoryStorage()
     modelstorage = model.MemoryModelStorage()
-    # actionstorage = action.MemoryActionStorage()
     actionstorage = list(range(k))
 
     if bandit == 'LinThompSamp':
@@ -46,7 +45,7 @@ def policy_generation(bandit, dim, k):
         policy = cab.CAB(historystorage, modelstorage, actionstorage, 6040, context_dimension=dim, minUsed=1)
 
     elif bandit == 'ThompCab':
-        policy = thomp_cab.ThompCAB(historystorage, modelstorage, actionstorage, 6040, context_dimension=dim, minUsed=1,
+        policy = thomp_cab.ThompCAB(historystorage, modelstorage, actionstorage, 6040, context_dimension=dim, minUsed=0, p=0.01,
                                         delta=0.1, R=0.01, epsilon=1/np.log(k))
 
     elif bandit == 'random':
@@ -60,6 +59,7 @@ def policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k):
     times = len(streaming_batch) // k
     seq_error = np.zeros(shape=(times, 1))
     action_ids = range(k)
+    start = time.time()
 
     if bandit in ['LinUCB', 'LinThompSamp']:
         for t in range(times):
@@ -84,7 +84,6 @@ def policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k):
                     seq_error[t] = seq_error[t - 1]
 
     elif bandit in ['Cab', 'ThompCab']:
-        start = time.time()
         for t in range(times):
             if t%100==0:
                 print('time: ' + str(t)) # debugging
@@ -106,8 +105,6 @@ def policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k):
                 policy.reward(history_id, {action[0].action: 1.0}, user)
                 if t > 0:
                     seq_error[t] = seq_error[t - 1]
-        end = time.time()
-        print('time: ' + str(end-start) + 'sec')
 
     elif bandit == 'random':
         for t in range(times):
@@ -121,6 +118,8 @@ def policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k):
             else:
                 if t > 0:
                     seq_error[t] = seq_error[t - 1]
+    end = time.time()
+    print('time: {} sec'.format(end-start))
 
     return seq_error
 
@@ -141,28 +140,29 @@ def main():
     dataset = args.dataset[0]
     k = args.k[0]
     streaming_batch, users, reward_list = get_data(dataset)
+    streaming_batch = streaming_batch.iloc[:50000]
     d = streaming_batch.shape[1]-1
-    print("rounds: ")
-    print(streaming_batch.shape[0]//k)
+    print("rounds: {}".format(streaming_batch.shape[0]//k))
     # conduct regret analyses
     regret = {}
     cum_regret = {}
     col = ['b', 'g', 'r', 'y']
-    bandits = ['ThompCab', 'LinThompSamp', 'random']
-    # bandits = ['LinThompSamp', 'random']
-    # bandits = ['ThompCab']
-    # bandits = ['Cab']
+    bandits = ['Cab', 'ThompCab', 'LinThompSamp', 'random']
     for i, bandit in enumerate(bandits):
         policy = policy_generation(bandit, d, k)
-        seq_error = policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k)
-        regret[bandit] = regret_calculation(seq_error)
-        cum_regret[bandit] = seq_error
-        plt.plot(range(len(streaming_batch)//k), cum_regret[bandit], c=col[i], ls='-', label=bandit)
-        plt.xlabel('time')
-        plt.ylabel('regret')
-        plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
-        axes = plt.gca()
-        plt.title("Regret Bound with respect to T")
+        try:
+            seq_error = policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k)
+            regret[bandit] = regret_calculation(seq_error)
+            cum_regret[bandit] = seq_error
+            plt.plot(range(len(streaming_batch)//k), cum_regret[bandit], c=col[i], ls='-', label=bandit)
+            plt.xlabel('time')
+            plt.ylabel('regret')
+            plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+            axes = plt.gca()
+            plt.title("Regret Bound with respect to T")
+        except e:
+            print(e)
+            continue
     plt.show()
 
 

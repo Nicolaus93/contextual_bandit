@@ -41,7 +41,7 @@ def hashing_feat(df, n, cols):
     Output:
         - dataset: (pandas.DataFrame) hashed dataset
     """
-    print("Hashing features")
+    print('Hashing features')
     y = df['click']
     enc = ce.HashingEncoder(cols=cols, n_components=n).fit(df, y)
     return enc.transform(df)
@@ -50,7 +50,7 @@ def build_dataset(df, k):
     """
     TODO 
     """
-    print("building dataset")
+    print('building dataset')
     grouped = df.groupby(['device_ip']) # group by users
     k = k-1 # number of 'no' clicks per round
     l = [] # list containing every round
@@ -60,6 +60,7 @@ def build_dataset(df, k):
             zeros = user_interactions.get_group(0)
         except:
             print('    not enough zeros')
+            print(name)
             continue
         try:
             ones = user_interactions.get_group(1)
@@ -83,7 +84,7 @@ def build_dataset(df, k):
     random.shuffle(l) # shuffle rounds
     return pd.concat(l)
 
-def one_hot_enc(df):
+def one_hot_enc(df, old_cols):
     """
     Input: 
         - df: (pandas.DataFrame) dataset
@@ -91,12 +92,12 @@ def one_hot_enc(df):
         normalized one hot encoded dataset (pandas.DataFrame)
     """
     print('One-hot encoding')
-    col = [item for item in df.columns if item not in ['click', 'device_ip']]
+    col = [item for item in df.columns if item not in old_cols]
     df = pd.concat([pd.get_dummies(df[c]) for c in col], axis=1) # one hot encoding
     return df.div(df.sum(axis=1), axis=0) # normalize
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Preprocess a dataset.')
     parser.add_argument(dest='dataset', metavar='dataset', type=str, nargs=1,
                         help='the dataset to preprocess')
@@ -109,9 +110,10 @@ if __name__ == "__main__":
     dataset = args.dataset[0]
     k = args.k[0]
     n_feat = args.n_feat[0]
-    print("reading dataset")
+    print('reading dataset')
     df = pd.read_csv(dataset)
-    print("Unique users: " + str(len(df['device_id'].unique())))
+    df = df.loc[(df['site_id']=='1fbe01fe') & (df['app_id']=='ecad2386')]
+    print('Unique users: ' + str(len(df['device_id'].unique())))
 
     # feature engineering
     df = df.assign(day=pd.Series(df['hour'].apply(isWeekend)).values)
@@ -119,12 +121,16 @@ if __name__ == "__main__":
     df = df.drop('id', 1) # remove id
 
     # Hashing features
-    col = ['C1', 'banner_pos', 'site_id', 'site_domain', 'site_category', 'app_id', 'app_domain', \
-          'app_category', 'device_id', 'device_model', 'device_type', 'device_conn_type', \
-          'C14', 'C15', 'C16', 'C17', 'C18', 'C19', 'C20', 'C21', 'hour', 'day']
-    col = ['site_id', 'site_domain', 'site_category', 'app_id', 'app_domain', \
-          'app_category', 'device_model', \
-          'C14', 'C17', 'C19', 'C20', 'C21']
+    old_cols = df.columns
+    # col = ['C1', 'banner_pos', 'site_id', 'site_domain', 'site_category', 'app_id', 'app_domain', \
+    #       'app_category', 'device_id', 'device_model', 'device_type', 'device_conn_type', \
+    #       'C14', 'C15', 'C16', 'C17', 'C18', 'C19', 'C20', 'C21', 'hour', 'day']
+    # col = ['C1', 'site_id', 'site_domain', 'site_category', 'app_id', 'app_domain', \
+    #       'app_category', 'device_model', \
+    #       'C14', 'C17', 'C19', 'C20', 'C21']
+    # col = ['C1' 'C14', 'C15', 'C16', 'C17', 'C18', 'C19', 'C20', 'C21']
+    # col = [device_id_      device_ip_      device_model_   device_type_   device_conn_type]
+    col = ['C14','C17','C20','C21']
     df = hashing_feat(df, n_feat, col)
 
     # building datasets
@@ -133,10 +139,12 @@ if __name__ == "__main__":
     users = pd.DataFrame(df['device_ip'])
 
     # one hot encoding
-    df = one_hot_enc(df)
+    df = one_hot_enc(df, old_cols)
 
     (rows, cols) = df.shape
-    print("The final dataset contains: \n    -{} rows \n    -{} columns".format(rows,cols))
+    print('The final dataset contains: \n    -{} rows \n    -{} columns'.format(rows,cols))
+    print('It looks like this:')
+    print(df.head())
     # redefine users
     le = LabelEncoder()
     le.fit(list(users['device_ip']))
@@ -144,7 +152,7 @@ if __name__ == "__main__":
     sorted(users['device_ip'].unique())
     
     # save everything
-    print("saving")
+    print('saving')
     file_path = os.getcwd()
     directory = os.path.join(os.sep, file_path, dataset)
     directory = os.path.splitext(directory)[0]
@@ -154,3 +162,5 @@ if __name__ == "__main__":
     rewards.to_csv(os.path.join(os.sep, directory, 'reward_list.csv'))
     df.to_csv(os.path.join(os.sep, directory, 'processed.csv'))
     users.to_csv(os.path.join(os.sep, directory, 'users.csv'))
+    f = open(os.path.join(os.sep, directory, 'info.txt'), 'w')
+    f.write(str(k))
