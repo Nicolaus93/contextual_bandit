@@ -123,7 +123,7 @@ class ThompCAB(BaseBandit):
                 # compute "confidence bound" and update neighborood
                 j_CB = score_array - estimated_reward_array
                 one = np.abs(estimated_reward_array - user_estimated_reward_array)
-                two = user_CB + j_CB
+                two = np.abs(user_CB) + np.abs(j_CB)
                 a = np.where(one<two)[0]
                 for i in a:
                     self.N[action_ids[i]].append(j)
@@ -204,6 +204,7 @@ class ThompCAB(BaseBandit):
                     score=score[action_id],
                 ))
 
+        self.used[user] += 1
         self.t += 1
         history_id = self._history_storage.add_history(context, recommendations)
         return history_id, recommendations
