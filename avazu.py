@@ -45,8 +45,8 @@ def policy_generation(bandit, dim, k):
         policy = cab.CAB(historystorage, modelstorage, actionstorage, 6040, context_dimension=dim, minUsed=1)
 
     elif bandit == 'ThompCab':
-        policy = thomp_cab.ThompCAB(historystorage, modelstorage, actionstorage, 6040, context_dimension=dim, minUsed=0, p=0.01,
-                                        delta=0.1, R=0.01, epsilon=1/np.log(k))
+        policy = thomp_cab.ThompCAB(historystorage, modelstorage, actionstorage, 6040, context_dimension=dim, minUsed=1, p=0.2,
+                                        gamma=0.2, delta=0.1, R=0.01, epsilon=1/np.log(k))
 
     elif bandit == 'random':
         policy = 0
@@ -85,7 +85,7 @@ def policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k):
     elif bandit in ['Cab', 'ThompCab']:
         for t in range(times):
             if t%100==0:
-                print('time: ' + str(t)) # debugging
+                print('round ' + str(t)) # debugging
             user = users.iloc[t*k]['device_ip']
             full_context = {}
             for action_id in action_ids:
@@ -139,26 +139,28 @@ def main():
     info_file = os.path.join(os.sep, os.getcwd(), info_path)
     for i, line in enumerate(open(info_file, 'r')):
         if i == 0:
-            k = int(line)
+            k = int(line.split()[0])
+        print(line.rstrip())
     streaming_batch, users, reward_list = get_data(dataset)
-    streaming_batch = streaming_batch.iloc[:50000]
+    streaming_batch = streaming_batch.iloc[:20000]
+    time = len(streaming_batch)//k
     d = streaming_batch.shape[1]-1
-    print("rounds: {}".format(streaming_batch.shape[0]//k))
+    print("rounds: {}".format(time))
     # conduct regret analyses
     regret = {}
     cum_regret = {}
     col = ['b', 'g', 'r', 'y']
     # bandits = ['Cab', 'ThompCab', 'LinThompSamp', 'random']
-    bandits = ['ThompCab', 'LinThompSamp']
+    bandits = ['ThompCab', 'LinThompSamp', 'random']
     for i, bandit in enumerate(bandits):
         policy = policy_generation(bandit, d, k)
         seq_error = policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k)
         regret[bandit] = regret_calculation(seq_error)
         cum_regret[bandit] = seq_error
-        plt.plot(range(len(streaming_batch)//k), cum_regret[bandit], c=col[i], ls='-', label=bandit)
+        plt.plot(range(time), cum_regret[bandit], c=col[i], ls='-', label=bandit)
         plt.xlabel('time')
         plt.ylabel('regret')
-        plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+        plt.legend(loc='upper left')
         axes = plt.gca()
         plt.title("Regret Bound with respect to T")
     plt.show()
