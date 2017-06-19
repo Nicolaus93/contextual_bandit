@@ -32,70 +32,194 @@ def hour(d):
     else:
         return 3
 
-def hashing_feat(df, n, cols):
+# def hashing_feat(df, n, cols):
+#     """
+#     Input: 
+#         - df: (pandas.DataFrame) dataset
+#         - n: (int) number of bins for the hashing
+#         - cols: (list) columns (features) to be hashed
+#     Output:
+#         - dataset: (pandas.DataFrame) hashed dataset
+#     """
+#     print('Hashing features...')
+#     y = df['click']
+#     enc = ce.HashingEncoder(cols=cols, n_components=n).fit(df, y)
+#     return enc.transform(df)
+
+# def build_dataset(df, k):
+#     """
+#     TODO 
+#     """
+#     print('building dataset...')
+#     grouped = df.groupby(['device_ip']) # group by users
+#     k = k-1 # number of 'no' clicks per round
+#     l = [] # list containing every round
+#     for name, group in grouped:
+#         user_interactions = group.groupby('click') # there will be 2 groups: 0/1
+#         try:
+#             zeros = user_interactions.get_group(0)
+#         except:
+#             print('    not enough zeros')
+#             print(name)
+#             continue
+#         try:
+#             ones = user_interactions.get_group(1)
+#         except:
+#             print('    not enough ones')
+#             continue
+#         # compute the number of splits per user and split the interactions
+#         num_of_splits = len(zeros)//k
+#         if num_of_splits > 0:
+#             splits = np.array_split(zeros, num_of_splits)
+#             # build the rounds with k-zeros rewards a 1-one reward
+#             for index_and_row, split in zip(ones.iterrows(), splits):
+#                 r = pd.concat([split, index_and_row[1].to_frame().transpose()])
+
+#                 if len(r)>10:
+#                     r.drop(r.index[:len(r)-10], inplace=True)
+#                 # add the round to the list (after shuffling)
+#                 l.append(r.iloc[np.random.permutation(len(r))])
+#         else:
+#             continue
+#     random.shuffle(l) # shuffle rounds
+#     return pd.concat(l)
+
+# def one_hot_enc(df, old_cols):
+#     """
+#     Input: 
+#         - df: (pandas.DataFrame) dataset
+#     Output:
+#         normalized one hot encoded dataset (pandas.DataFrame)
+#     """
+#     print('One-hot encoding...')
+#     col = [item for item in df.columns if item not in old_cols]
+#     df = pd.concat([pd.get_dummies(df[c]) for c in col], axis=1) # one hot encoding
+#     return df.div(df.sum(axis=1), axis=0) # normalize
+
+def def_user(row):    
+    if row['device_id'] == 'a99f214a':
+        user = 'ip-' + row['device_ip'] + '-' + row['device_model']
+    else:
+        user = 'id-' + row['device_id']
+    return user
+
+def is_app(row):
+    return True if row['site_id'] == '85f751fd' else False
+
+def def_pub(x):
+    y = {}
+    if is_app(x):
+        y['pub_id'] = x['app_id']
+        y['pub_domain'] = x['app_domain']
+        y['pub_category'] = x['app_category']
+    else:
+        y['pub_id'] = x['site_id']
+        y['pub_domain'] = x['site_domain']
+        y['pub_category'] = x['site_category']
+    return pd.Series([y['pub_id'], y['pub_domain'], y['pub_category']])
+
+def feature_hashing(X, N=2, cols=None):
+        """A basic hashing implementation with configurable dimensionality/precision
+        Performs the hashing trick on a pandas dataframe, `X`, using the mmh3 library.  
+        The number of output dimensions (`N`), and columns to hash (`cols`) are
+        also configurable.
+        Parameters
+        ----------
+        X_in: pandas dataframe
+            description text
+        N: int, optional
+            description text
+        cols: list, optional
+            description text
+        Returns
+        -------
+        out : dataframe
+            A hashing encoded dataframe.
+        References
+        ----------
+        Cite the relevant literature, e.g. [1]_.  You may also cite these
+        references in the notes section above.
+        .. [1] Kilian Weinberger; Anirban Dasgupta; John Langford; Alex Smola; Josh Attenberg (2009). Feature Hashing
+        for Large Scale Multitask Learning. Proc. ICML.
+        """
+        import mmh3
+        print('feature hashing...')
+        if cols is None:
+            cols = X.columns.values
+
+        def hash_fn(x):
+            tmp = [0 for _ in range(N)]
+            for pos, val in enumerate(x.values):
+                if val is not None:
+                    val = str(pos) + str(val)
+                    tmp[mmh3.hash(val) % N] += 1            
+            return pd.Series(tmp, index=new_cols)
+
+        new_cols = ['col_%d' % d for d in range(N)]
+
+        X_cat = X.reindex(columns=cols)
+        X_num = X.reindex(columns=[x for x in X.columns.values if x not in cols])
+
+        X_cat = X_cat.apply(hash_fn, axis=1)
+        X_cat.columns = new_cols
+
+        X = pd.merge(X_cat, X_num, left_index=True, right_index=True)
+
+        return X
+
+def one_hot_hashing(x):
     """
-    Input: 
-        - df: (pandas.DataFrame) dataset
-        - n: (int) number of bins for the hashing
-        - cols: (list) columns (features) to be hashed
-    Output:
-        - dataset: (pandas.DataFrame) hashed dataset
+    Perform one-hot-encoding after hashing trick
     """
-    print('Hashing features...')
-    y = df['click']
-    enc = ce.HashingEncoder(cols=cols, n_components=n).fit(df, y)
-    return enc.transform(df)
+    x[np.where(x)[0]] = 1
+    return x
+
+def one_zero(x):
+    """
+    Perform one-hot encoding with pandas built-in function
+    """
+    x[x.nonzero()[0]] = 1
+    return x
+
+def one_normalize(x):
+    """
+    """
+    x[np.where(x)[0]] = 1
+    norm = np.sqrt(x.dot(x))
+    return x/norm
+
+def normalize(x):
+    """
+    So that each row has norm=1
+    """
+    norm = np.sqrt(x.dot(x))
+    return x/norm
 
 def build_dataset(df, k):
     """
-    TODO 
+    Todo: check for duplicates between 1 and 0s
     """
     print('building dataset...')
-    grouped = df.groupby(['device_ip']) # group by users
-    k = k-1 # number of 'no' clicks per round
-    l = [] # list containing every round
+    grouped = df.groupby(['user_id'])   # group by users
+    l = []                              # list containing every round
     for name, group in grouped:
         user_interactions = group.groupby('click') # there will be 2 groups: 0/1
         try:
-            zeros = user_interactions.get_group(0)
-        except:
-            print('    not enough zeros')
-            print(name)
-            continue
-        try:
             ones = user_interactions.get_group(1)
         except:
-            print('    not enough ones')
+            # print('    not enough ones')
             continue
-        # compute the number of splits per user and split the interactions
-        num_of_splits = len(zeros)//k
-        if num_of_splits > 0:
-            splits = np.array_split(zeros, num_of_splits)
-            # build the rounds with k-zeros rewards a 1-one reward
-            for index_and_row, split in zip(ones.iterrows(), splits):
-                r = pd.concat([split, index_and_row[1].to_frame().transpose()])
-
-                if len(r)>10:
-                    r.drop(r.index[:len(r)-10], inplace=True)
-                # add the round to the list (after shuffling)
+        try:
+            zeros = user_interactions.get_group(0)
+            zeros = zeros[~zeros.duplicated(keep='first')] # discard duplicates
+            for index_and_row in ones.iterrows():
+                r = pd.concat([zeros.sample(n=k-1), index_and_row[1].to_frame().transpose()])
                 l.append(r.iloc[np.random.permutation(len(r))])
-        else:
+        except:
+            # print('    not enough zeros')
             continue
-    random.shuffle(l) # shuffle rounds
+    random.shuffle(l)
     return pd.concat(l)
-
-def one_hot_enc(df, old_cols):
-    """
-    Input: 
-        - df: (pandas.DataFrame) dataset
-    Output:
-        normalized one hot encoded dataset (pandas.DataFrame)
-    """
-    print('One-hot encoding...')
-    col = [item for item in df.columns if item not in old_cols]
-    df = pd.concat([pd.get_dummies(df[c]) for c in col], axis=1) # one hot encoding
-    return df.div(df.sum(axis=1), axis=0) # normalize
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Preprocess a dataset.')
@@ -111,41 +235,65 @@ if __name__ == '__main__':
     k = args.k[0]
     n_feat = args.n_feat[0]
     print('reading dataset...')
-    df = pd.read_csv(dataset)
-    df = df.loc[(df['site_id']=='1fbe01fe') & (df['app_id']=='ecad2386')]
-    usr_msg = 'There are ' + str(len(df['device_ip'].unique())) + ' unique users.'
+    # df = pd.read_csv(dataset)
+
+    """
+    new one
+    """
+    df = pd.read_csv('train.csv')
+    cols = ['device_id', 'device_ip', 'device_model']
+    df = df.assign(user_id=pd.Series(df[cols].apply(def_user, axis=1)).values)
+    n = df['user_id'].value_counts()[df['user_id'].value_counts()>=100].index
+    df = df.loc[df['user_id'].isin(n)]
+
+    try:
+        df = df.drop('Unnamed: 0', 1)
+    except:
+        pass
+    """
+    """
+
+    # df = df.loc[df['device_id']=='a99f214a']
+    # df = df.assign(user_id=pd.Series(df.apply(def_user, axis=1)).values)
+
+    usr_msg = 'There are ' + str(len(df['user_id'].unique())) + ' unique users.'
     print(usr_msg)
 
     # feature engineering
-    df = df.assign(day=pd.Series(df['hour'].apply(isWeekend)).values)
-    df = df.assign(hour=pd.Series(df['hour'].apply(hour)).values)
-    df = df.drop('id', 1) # remove id
+    print('feature engineering..')
+    cols = ['app_id','app_domain','app_category','site_id','site_domain','site_category']
+    newcols = df[cols].apply(def_pub, axis=1)
+    newcols.columns = ['pub_id', 'pub_domain', 'pub_category']
+    df = df.join(newcols)
+    del newcols
+    # remove unnecessary features
+    cols.extend(('id','hour','C1','device_id','device_ip','device_type','C15','C16','C18','C19'))
+    df = df.drop(cols, 1) # remove id
 
     # Hashing features
-    old_cols = df.columns
-    # col = ['C1', 'banner_pos', 'site_id', 'site_domain', 'site_category', 'app_id', 'app_domain', \
-    #       'app_category', 'device_id', 'device_model', 'device_type', 'device_conn_type', \
-    #       'C14', 'C15', 'C16', 'C17', 'C18', 'C19', 'C20', 'C21', 'hour', 'day']
-    # col = ['C1', 'site_id', 'site_domain', 'site_category', 'app_id', 'app_domain', \
-    #       'app_category', 'device_model', \
-    #       'C14', 'C17', 'C19', 'C20', 'C21']
-    # col = ['C1' 'C14', 'C15', 'C16', 'C17', 'C18', 'C19', 'C20', 'C21']
-    # col = [device_id_      device_ip_      device_model_   device_type_   device_conn_type]
-    col = ['C14','C17','C20','C21']
-    df = hashing_feat(df, n_feat, col)
+    old_cols = df.columns # keep these for later use   
+    cols = ['pub_id','pub_domain','pub_category','banner_pos','device_model', \
+          'device_conn_type','C14','C17','C20','C21']
+    df = feature_hashing(df, N=n_feat, cols=cols)
 
-    # building datasets
+    # one hot encoding and normalizing
+    co = [c for c in df.columns if not c in ['user_id','click']]
+    # df[co] = df[co].apply(one_zero, axis=1)
+    # df[co] = df[co].apply(normalize, axis=1)
+    df[co] = df[co].apply(one_normalize, axis=1)
+    print(df.head())
+
+    # building dataset
     df = build_dataset(df, k)
     rewards = pd.DataFrame(df['click'])
-    users = pd.DataFrame(df['device_ip'])
-
-    # one hot encoding
-    df = one_hot_enc(df, old_cols)
+    users = pd.DataFrame(df['user_id'])
+    df = df.drop(['click', 'user_id'], 1) # remove click and user_id
+    usr_msg = 'There are ' + str(len(users['user_id'].unique())) + ' unique users after preproccesing.'
 
     # redefine users
     le = LabelEncoder()
-    le.fit(list(users['device_ip']))
-    users['device_ip'] = le.transform(users['device_ip'])
+    le.fit(list(users['user_id']))
+    users['user_id'] = le.transform(users['user_id'])
 
     # some info
     (rows, cols) = df.shape
@@ -154,7 +302,7 @@ if __name__ == '__main__':
     print(df.head())
 
     # save everything
-    print('saving')
+    print('saving...')
     file_path = os.getcwd()
     directory = os.path.join(os.sep, file_path, dataset)
     directory = os.path.splitext(directory)[0]
