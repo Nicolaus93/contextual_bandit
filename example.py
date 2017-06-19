@@ -131,8 +131,6 @@ def policy_evaluation(policy, bandit, streaming_batch, user_feature, reward_list
                 if t > 0:
                     seq_error[t] = seq_error[t - 1]
 
-        # policy.get_parameters()
-
     elif bandit == 'random':
         for t in range(times):
             action = actions_id[np.random.randint(0, len(actions)-1)]
