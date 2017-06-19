@@ -2,9 +2,8 @@ function cregret = random(T, K, Y)
 % Random guessing
 %   
 regret = zeros(1, T);
-for round=1:T
-    t = K*(round-1)+1;
+for t=1:T    
     action = randi(K);
-    regret(round) = 1 - Y(t+action-1);
+    regret(t) = 1 - Y(t, action);
 end
 cregret = cumsum(regret);
