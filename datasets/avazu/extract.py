@@ -11,7 +11,7 @@ def def_user(row):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Preprocess a dataset.')
-    parser.add_argument(dest='-i', metavar='intr', type=int, nargs=1,
+    parser.add_argument('-i', dest='intr', metavar='interactions', type=int, nargs=1,
                         help='number of interactions per user')
 
     args = parser.parse_args()
@@ -27,3 +27,4 @@ if __name__ == '__main__':
     print(us)
     name = 'filtered' + str(intr) + '.csv'
     res.to_csv(name)
+
