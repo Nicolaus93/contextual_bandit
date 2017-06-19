@@ -19,6 +19,8 @@ import time
 import os
 import argparse
 
+aa = 1
+
 def get_data(dataset):
     file_path = os.getcwd()
     d = os.path.join(os.sep, file_path, 'datasets/avazu')
@@ -168,3 +170,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
