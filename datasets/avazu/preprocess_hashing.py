@@ -216,9 +216,9 @@ if __name__ == '__main__':
 
     if not os.path.exists(directory):
         os.makedirs(directory)
-    rewards.to_csv(os.path.join(os.sep, directory, 'reward_list.csv'))
-    df.to_csv(os.path.join(os.sep, directory, 'processed.csv'))
-    users.to_csv(os.path.join(os.sep, directory, 'users.csv'))
+    rewards.to_csv(os.path.join(os.sep, directory, 'reward_list.csv'), index=False)
+    df.to_csv(os.path.join(os.sep, directory, 'processed.csv'), index=False)
+    users.to_csv(os.path.join(os.sep, directory, 'users.csv'), index=False)
     f = open(os.path.join(os.sep, directory, 'info.txt'), 'w')
     f.write(str(k) + ' items per round\n')
     f.write(usr_msg)
