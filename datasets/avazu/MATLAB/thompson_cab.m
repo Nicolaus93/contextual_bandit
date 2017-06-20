@@ -11,7 +11,7 @@ function model = thompson_cab(X, Y, users, gamma, p, minUsed)
 %       - model
 tic
 
-% X = permute(X,[1 3 2]);           % use this to get the corresponding version of CAB
+X = permute(X,[1 3 2]);           % use this to get the corresponding version of CAB
 
 T = size(X, 1);                     % number of training samples
 d = size(X, 3);                     % dimension of the item vectors
@@ -170,7 +170,7 @@ for t = 1:T
     end
     
     % update regret
-    model.regret(t) = 1 - Y(t, indexMax);
+    model.regret(t) = max(Y(t, :)) - Y(t, indexMax);
     model.neighborhoodsize(t) = sum(N(indexMax,:));
     model.updatedsize(t) = sum(find(updated));
 end
