@@ -19,7 +19,12 @@ for i=1:K:T*K
 end
 
 %% artificial data
-[X,Y,users] = artificial_data_generator(10000,10,10);
+T = 10000;
+d = 15;
+k = 10;
+classes = 5;
+numUsers = 2;
+[X,Y,users,user_models] = artificial_data_generator(T,d,k,classes,numUsers); % T,d,k
 
 %% thompson sampling
 thompson = thompson_sampling(X,Y);
@@ -35,7 +40,7 @@ p = 0.5;
 model2 = CAB1_woow_fastened(X, Y, users, 0.12, 0.20, minUsed, p);
 
 %% random
-cregret = random(T, K, Y);
+cregret = random(T, k, Y);
 
 %% vectorized thompson cab
 addpath(genpath('/mtimesx_20110223/'));
@@ -47,9 +52,10 @@ model3 = vect_thompson_cab(X, Y, users, gamma);
 % plotting the cregret vs time 
 train=1:T;
 hold on
-plot(train,thompson.cregret,'m','DisplayName','Thompson CAB')
-%plot(train,cregret,'b','DisplayName','Random')
-%plot(train,model2.cregret,'g','DisplayName','Cab')
+plot(train,thompson.cregret,'y','DisplayName','Thompson Sampling')
+plot(train,model.cregret,'b','DisplayName','Thompson CAB')
+plot(train,cregret,'r','DisplayName','Random')
+plot(train,model2.cregret,'g','DisplayName','Cab')
 
 title('Avazu')
 xlabel('Time')
