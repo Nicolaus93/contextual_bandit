@@ -18,6 +18,7 @@ from striatum.bandit import linthompsamp, linucb, cab, thomp_cab
 import time
 import os
 import argparse
+import pickle
 
 aa = 1
 
@@ -88,7 +89,7 @@ def policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k):
         for t in range(times):
             if t%100==0:
                 print('round ' + str(t)) # debugging
-            user = users.iloc[t*k]['device_ip']
+            user = users.iloc[t*k]['user_id']
             full_context = {}
             for action_id in action_ids:
                 full_context[action_id] = np.array(streaming_batch.iloc[t*k+action_id][1:])
@@ -144,7 +145,7 @@ def main():
             k = int(line.split()[0])
         print(line.rstrip())
     streaming_batch, users, reward_list = get_data(dataset)
-    streaming_batch = streaming_batch.iloc[:20000]
+    # streaming_batch = streaming_batch.iloc[:200000]
     time = len(streaming_batch)//k
     d = streaming_batch.shape[1]-1
     print("rounds: {}".format(time))
@@ -153,19 +154,29 @@ def main():
     cum_regret = {}
     col = ['b', 'g', 'r', 'y']
     # bandits = ['Cab', 'ThompCab', 'LinThompSamp', 'random']
-    bandits = ['ThompCab', 'LinThompSamp', 'random']
+    bandits = ['ThompCab', 'random', 'LinThompSamp']
     for i, bandit in enumerate(bandits):
         policy = policy_generation(bandit, d, k)
         seq_error = policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k)
         regret[bandit] = regret_calculation(seq_error)
         cum_regret[bandit] = seq_error
-        plt.plot(range(time), cum_regret[bandit], c=col[i], ls='-', label=bandit)
-        plt.xlabel('time')
-        plt.ylabel('regret')
-        plt.legend(loc='upper left')
-        axes = plt.gca()
-        plt.title("Regret Bound with respect to T")
-    plt.show()
+        # plt.plot(range(time), cum_regret[bandit], c=col[i], ls='-', label=bandit)
+        # plt.xlabel('time')
+        # plt.ylabel('regret')
+        # plt.legend(loc='upper left')
+        # axes = plt.gca()
+        # plt.title("Regret Bound with respect to T")
+
+    # plt.show()
+    file_Name = "testfile"
+    # open the file for writing
+    # fileObject = open(file_Name,'wb')
+    fileObject = open(file_Name, 'w+')
+    # this writes the object a to the
+    # file named 'testfile'
+    pickle.dump(cum_regret,fileObject)
+    # here we close the fileObject
+    fileObject.close()
 
 
 if __name__ == '__main__':
