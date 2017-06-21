@@ -144,7 +144,7 @@ def main():
             k = int(line.split()[0])
         print(line.rstrip())
     streaming_batch, users, reward_list = get_data(dataset)
-    streaming_batch = streaming_batch.iloc[:20000]
+    # streaming_batch = streaming_batch.iloc[:20000]
     time = len(streaming_batch)//k
     d = streaming_batch.shape[1]-1
     print("rounds: {}".format(time))
@@ -153,19 +153,19 @@ def main():
     cum_regret = {}
     col = ['b', 'g', 'r', 'y']
     # bandits = ['Cab', 'ThompCab', 'LinThompSamp', 'random']
-    bandits = ['ThompCab', 'LinThompSamp', 'random']
+    bandits = ['LinThompSamp', 'random']
     for i, bandit in enumerate(bandits):
         policy = policy_generation(bandit, d, k)
         seq_error = policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k)
         regret[bandit] = regret_calculation(seq_error)
         cum_regret[bandit] = seq_error
-        plt.plot(range(time), cum_regret[bandit], c=col[i], ls='-', label=bandit)
-        plt.xlabel('time')
-        plt.ylabel('regret')
-        plt.legend(loc='upper left')
-        axes = plt.gca()
-        plt.title("Regret Bound with respect to T")
-    plt.show()
+#        plt.plot(range(time), cum_regret[bandit], c=col[i], ls='-', label=bandit)
+#        plt.xlabel('time')
+#        plt.ylabel('regret')
+#        plt.legend(loc='upper left')
+#        axes = plt.gca()
+#        plt.title("Regret Bound with respect to T")
+#    plt.show()
 
 
 if __name__ == '__main__':
