@@ -18,8 +18,8 @@ from striatum.bandit import linthompsamp, linucb, cab, thomp_cab
 import time
 import os
 import argparse
+import pickle
 
-aa = 1
 
 def get_data(dataset):
     file_path = os.getcwd()
@@ -88,7 +88,7 @@ def policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k):
         for t in range(times):
             if t%100==0:
                 print('round ' + str(t)) # debugging
-            user = users.iloc[t*k]['device_ip']
+            user = users.iloc[t*k]['user_id']
             full_context = {}
             for action_id in action_ids:
                 full_context[action_id] = np.array(streaming_batch.iloc[t*k+action_id][1:])
@@ -130,28 +130,30 @@ def regret_calculation(seq_error):
     regret = [x / y for x, y in zip(seq_error, range(1, t + 1))]
     return regret
 
+
 def main():
     parser = argparse.ArgumentParser(description='Multi Armed Bandit algorithms.')
     parser.add_argument(dest='dataset', metavar='dataset', type=str, nargs=1,
                         help='the dataset to use')
-
     args = parser.parse_args()
+
+    # loading dataset
     dataset = args.dataset[0]
-    info_path = 'datasets/avazu/' + dataset + '/info.txt'
-    info_file = os.path.join(os.sep, os.getcwd(), info_path)
+    dataset_path = os.path.join(os.sep, os.getcwd(), 'datasets/avazu/' + dataset)
+    info_file = os.path.join(os.sep, dataset_path, 'info.txt')
     for i, line in enumerate(open(info_file, 'r')):
         if i == 0:
             k = int(line.split()[0])
         print(line.rstrip())
     streaming_batch, users, reward_list = get_data(dataset)
-    # streaming_batch = streaming_batch.iloc[:20000]
+
     time = len(streaming_batch)//k
     d = streaming_batch.shape[1]-1
     print("rounds: {}".format(time))
+    
     # conduct regret analyses
     regret = {}
     cum_regret = {}
-    col = ['b', 'g', 'r', 'y']
     # bandits = ['Cab', 'ThompCab', 'LinThompSamp', 'random']
     bandits = ['LinThompSamp', 'random']
     for i, bandit in enumerate(bandits):
@@ -159,13 +161,14 @@ def main():
         seq_error = policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k)
         regret[bandit] = regret_calculation(seq_error)
         cum_regret[bandit] = seq_error
-#        plt.plot(range(time), cum_regret[bandit], c=col[i], ls='-', label=bandit)
-#        plt.xlabel('time')
-#        plt.ylabel('regret')
-#        plt.legend(loc='upper left')
-#        axes = plt.gca()
-#        plt.title("Regret Bound with respect to T")
-#    plt.show()
+
+    # save results
+    result_dir = os.path.join(os.sep, dataset_path, 'results')
+    if not os.path.exists(result_dir):
+        os.makedirs(result_dir)
+    fileObject = open(os.path.join(os.sep, result_dir, 'cum_regret'), 'wb')
+    pickle.dump(cum_regret,fileObject)
+    fileObject.close()
 
 
 if __name__ == '__main__':
