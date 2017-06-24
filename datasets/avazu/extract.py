@@ -18,11 +18,14 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     intr = args.intr[0]
-    no = args.intr[1]
+    no = args.no[0]
+    print('reading dataset...')
     df = pd.read_csv('train.csv')
     # introduce user_id
+    print('defining user...')
     cols = ['device_id', 'device_ip', 'device_model']
     df = df.assign(user_id=pd.Series(df[cols].apply(def_user, axis=1)).values)
+    print('selecting users...')
     # select only yes clicks
     yes = df[df['click']==1]
     # select user whose number of yes clicks is >= than intr 
@@ -34,5 +37,6 @@ if __name__ == '__main__':
     print(res.shape)
     us = len(res['user_id'].unique())
     print(us)
+    print('saving dataset...')
     name = 'filtered_' + str(intr) + 'yes_' + str(no) + 'no.csv'
     res.to_csv(name, index=False)
