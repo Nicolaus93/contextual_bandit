@@ -1,10 +1,11 @@
 %% preprocessing
-features = csvread('../filtered100_1M/processed.csv',1,1);  % avoid reading column and row names
-rewards = csvread('../filtered100_1M/reward_list.csv',1,1); 
-users_id = csvread('../filtered100_1M/users.csv',1,1);
+features = csvread('../filtered200/processed.csv',1,1);  % avoid reading column and row names
+rewards = csvread('../filtered200/reward_list.csv',1,1); 
+users_id = csvread('../filtered200/users.csv',1,1);
 
 K = 10;                         % items per round
-T = size(features,1) / K;       % number of rounds
+%T = size(features,1) / K;       % number of rounds
+T = 10000;
 d = size(features,2);           % number of features
 
 X = zeros(T,K,d);
@@ -19,11 +20,11 @@ for i=1:K:T*K
 end
 
 %% artificial data
-T = 10000;
-d = 15;
+T = 500;
+d = 10;
 k = 10;
-classes = 5;
-numUsers = 2;
+classes = 2;
+numUsers = 1;
 [X,Y,users,user_models] = artificial_data_generator(T,d,k,classes,numUsers); % T,d,k
 
 %% thompson sampling
@@ -36,7 +37,7 @@ minUsed = 1;
 model = thompson_cab(X, Y, users, gamma, p, minUsed);
 
 %% Cab
-p = 0.5;
+p = 1;
 model2 = CAB1_woow_fastened(X, Y, users, 0.12, 0.20, minUsed, p);
 
 %% random
@@ -52,6 +53,8 @@ model3 = vect_thompson_cab(X, Y, users, gamma);
 % plotting the cregret vs time 
 train=1:T;
 hold on
+plot(train, train, 'DisplayName', 'y=x')
+plot(train, log(train), 'DisplayName', 'y=log(x)')
 plot(train,thompson.cregret,'y','DisplayName','Thompson Sampling')
 plot(train,model.cregret,'b','DisplayName','Thompson CAB')
 plot(train,cregret,'r','DisplayName','Random')

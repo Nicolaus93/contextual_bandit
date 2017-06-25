@@ -18,7 +18,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     intr = args.intr[0]
-    no = args.intr[1]
+    no = args.no[0]
     df = pd.read_csv('train.csv')
     # introduce user_id
     cols = ['device_id', 'device_ip', 'device_model']
