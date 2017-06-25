@@ -31,7 +31,7 @@ def get_data(dataset):
     return streaming_batch, users, reward_list
 
 
-def policy_generation(bandit, dim, k):
+def policy_generation(bandit, dim, k, numUsers):
     historystorage = history.MemoryHistoryStorage()
     modelstorage = model.MemoryModelStorage()
     actionstorage = list(range(k))
@@ -44,10 +44,10 @@ def policy_generation(bandit, dim, k):
         policy = linucb.LinUCB(historystorage, modelstorage, actionstorage, alpha=0.3, context_dimension=dim)
 
     elif bandit == 'Cab':
-        policy = cab.CAB(historystorage, modelstorage, actionstorage, 6040, context_dimension=dim, minUsed=1)
+        policy = cab.CAB(historystorage, modelstorage, actionstorage, users=numUsers, context_dimension=dim, minUsed=1)
 
     elif bandit == 'ThompCab':
-        policy = thomp_cab.ThompCAB(historystorage, modelstorage, actionstorage, 6040, context_dimension=dim, minUsed=1, p=0.2,
+        policy = thomp_cab.ThompCAB(historystorage, modelstorage, actionstorage, users=numUsers, context_dimension=dim, minUsed=1, p=0.2,
                                         gamma=0.2, delta=0.1, R=0.01, epsilon=1/np.log(k))
 
     elif bandit == 'random':
@@ -146,6 +146,7 @@ def main():
             k = int(line.split()[0])
         print(line.rstrip())
     streaming_batch, users, reward_list = get_data(dataset)
+    numUsers = len(users['user_id'].unique())
 
     time = len(streaming_batch)//k
     d = streaming_batch.shape[1]-1
@@ -155,9 +156,9 @@ def main():
     regret = {}
     cum_regret = {}
     # bandits = ['Cab', 'ThompCab', 'LinThompSamp', 'random']
-    bandits = ['random', 'LinThompSamp']
+    bandits = ['ThompCab', 'random', 'LinThompSamp']
     for i, bandit in enumerate(bandits):
-        policy = policy_generation(bandit, d, k)
+        policy = policy_generation(bandit, d, k, numUsers)
         seq_error = policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k)
         regret[bandit] = regret_calculation(seq_error)
         cum_regret[bandit] = seq_error
