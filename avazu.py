@@ -156,6 +156,7 @@ def main():
     regret = {}
     cum_regret = {}
     # bandits = ['Cab', 'ThompCab', 'LinThompSamp', 'random']
+
     bandits = ['ThompCab', 'random', 'LinThompSamp']
     for i, bandit in enumerate(bandits):
         policy = policy_generation(bandit, d, k, numUsers)

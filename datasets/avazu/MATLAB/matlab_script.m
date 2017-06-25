@@ -1,7 +1,8 @@
 %% preprocessing
-features = csvread('../filtered200/processed.csv',1,1);  % avoid reading column and row names
-rewards = csvread('../filtered200/reward_list.csv',1,1); 
-users_id = csvread('../filtered200/users.csv',1,1);
+%{
+features = csvread('../reduced/processed.csv',1,1);  % avoid reading column and row names
+rewards = csvread('../reduced/reward_list.csv',1,1); 
+users_id = csvread('../reduced/users.csv',1,1);
 
 K = 10;                         % items per round
 %T = size(features,1) / K;       % number of rounds
@@ -18,6 +19,7 @@ for i=1:K:T*K
     users(t) = users_id(i)+1;       % we add 1 since 0 is included (it might cause problems with indices)
     t = t + 1;
 end
+%}
 
 %% artificial data
 T = 500;
