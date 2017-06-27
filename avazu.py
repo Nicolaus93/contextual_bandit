@@ -47,7 +47,7 @@ def policy_generation(bandit, dim, k, numUsers):
         policy = cab.CAB(historystorage, modelstorage, actionstorage, users=numUsers, context_dimension=dim, minUsed=1)
 
     elif bandit == 'ThompCab':
-        policy = thomp_cab.ThompCAB(historystorage, modelstorage, actionstorage, users=numUsers, context_dimension=dim, minUsed=1, p=0.2,
+        policy = thomp_cab.ThompCAB(historystorage, modelstorage, actionstorage, users=numUsers, context_dimension=dim, minUsed=1, p=1,
                                         gamma=0.2, delta=0.1, R=0.01, epsilon=1/np.log(k))
 
     elif bandit == 'random':
@@ -137,41 +137,48 @@ def main():
                         help='the dataset to use')
     args = parser.parse_args()
 
-    # loading dataset
+    # read arguments
     dataset = args.dataset[0]
     dataset_path = os.path.join(os.sep, os.getcwd(), 'datasets/avazu/' + dataset)
+
+    # print info
     info_file = os.path.join(os.sep, dataset_path, 'info.txt')
     for i, line in enumerate(open(info_file, 'r')):
         if i == 0:
             k = int(line.split()[0])
         print(line.rstrip())
+
+    # load dataset
     streaming_batch, users, reward_list = get_data(dataset)
     numUsers = len(users['user_id'].unique())
 
     time = len(streaming_batch)//k
-    d = streaming_batch.shape[1]-1
+    d = streaming_batch.shape[1]
     print("rounds: {}".format(time))
-    
+
     # conduct regret analyses
     regret = {}
     cum_regret = {}
-    # bandits = ['Cab', 'ThompCab', 'LinThompSamp', 'random']
 
-    bandits = ['ThompCab', 'random', 'LinThompSamp']
+    # create results directory
+    result_dir = os.path.join(os.sep, dataset_path, 'results')
+    if not os.path.exists(result_dir):
+        os.makedirs(result_dir)
+
+    # run algorithms
+    bandits = ['random']
     for i, bandit in enumerate(bandits):
         policy = policy_generation(bandit, d, k, numUsers)
         seq_error = policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k)
         regret[bandit] = regret_calculation(seq_error)
         cum_regret[bandit] = seq_error
-
-    # save results
-    result_dir = os.path.join(os.sep, dataset_path, 'results')
-    if not os.path.exists(result_dir):
-        os.makedirs(result_dir)
-    fileObject = open(os.path.join(os.sep, result_dir, 'cum_regret'), 'wb')
-    pickle.dump(cum_regret,fileObject)
-    fileObject.close()
-
+        # save results
+        fileObject = open(os.path.join(os.sep, result_dir, bandit), 'wb')
+        regretObject = open(os.path.join(os.sep, result_dir, bandit + '_regret'), 'wb')
+        pickle.dump(cum_regret[bandit],fileObject)
+        pickle.dump(regret[bandit], regretObject)
+        fileObject.close()
+        regretObject.close()
 
 if __name__ == '__main__':
     main()
