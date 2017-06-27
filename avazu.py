@@ -34,7 +34,7 @@ def get_data(dataset):
 def policy_generation(bandit, dim, t, numUsers):
     historystorage = history.MemoryHistoryStorage()
     modelstorage = model.MemoryModelStorage()
-    actionstorage = list(range(k))
+    actionstorage = list(range(10))
 
     if bandit == 'LinThompSamp':
         policy = linthompsamp.LinThompSamp(historystorage, modelstorage, actionstorage,
@@ -67,7 +67,7 @@ def policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k):
         for t in range(times):
             full_context = {}
             for action_id in action_ids:
-                full_context[action_id] = np.array(streaming_batch.iloc[t*k+action_id][1:]) # don't include the index
+                full_context[action_id] = np.array(streaming_batch.iloc[t*k+action_id]) # don't include the index
 
             # get next (one) action to perform and its reward
             history_id, action = policy.get_action(full_context, 1)
@@ -179,8 +179,8 @@ def main():
         regret[bandit] = regret_calculation(seq_error)
         cum_regret[bandit] = seq_error
         # save results
-        fileObject = open(os.path.join(cum_regret_dir, bandit + str(r)), 'wb')
-        regretObject = open(os.path.join(regret_dir, bandit + str(r)), 'wb')
+        fileObject = open(os.path.join(cum_regret_dir, bandit, 'wb')
+        regretObject = open(os.path.join(regret_dir, bandit, 'wb')
         pickle.dump(cum_regret[bandit],fileObject)
         pickle.dump(regret[bandit], regretObject)
         fileObject.close()
