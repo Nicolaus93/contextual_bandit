@@ -31,14 +31,14 @@ def get_data(dataset):
     return streaming_batch, users, reward_list
 
 
-def policy_generation(bandit, dim, k, numUsers):
+def policy_generation(bandit, dim, t, numUsers):
     historystorage = history.MemoryHistoryStorage()
     modelstorage = model.MemoryModelStorage()
     actionstorage = list(range(k))
 
     if bandit == 'LinThompSamp':
         policy = linthompsamp.LinThompSamp(historystorage, modelstorage, actionstorage,
-                                           context_dimension=dim, delta=0.1, R=0.01, epsilon=1/np.log(k))
+                                           context_dimension=dim, delta=0.1, R=0.01, epsilon=1/np.log(t))
 
     elif bandit == 'LinUCB':
         policy = linucb.LinUCB(historystorage, modelstorage, actionstorage, alpha=0.3, context_dimension=dim)
@@ -48,7 +48,7 @@ def policy_generation(bandit, dim, k, numUsers):
 
     elif bandit == 'ThompCab':
         policy = thomp_cab.ThompCAB(historystorage, modelstorage, actionstorage, users=numUsers, context_dimension=dim, minUsed=1, p=1,
-                                        gamma=0.2, delta=0.1, R=0.01, epsilon=1/np.log(k))
+                                        gamma=0.2, delta=0.1, R=0.01, epsilon=1/np.log(t))
 
     elif bandit == 'random':
         policy = 0
