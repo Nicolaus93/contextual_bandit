@@ -31,14 +31,14 @@ def get_data(dataset):
     return streaming_batch, users, reward_list
 
 
-def policy_generation(bandit, dim, t, numUsers, r):
+def policy_generation(bandit, dim, t, numUsers):
     historystorage = history.MemoryHistoryStorage()
     modelstorage = model.MemoryModelStorage()
     actionstorage = list(range(k))
 
     if bandit == 'LinThompSamp':
         policy = linthompsamp.LinThompSamp(historystorage, modelstorage, actionstorage,
-                                           context_dimension=dim, delta=0.1, R=0.01, epsilon=1/np.log(t))
+                                           context_dimension=dim, delta=0.1, R=0.02, epsilon=1/np.log(t))
 
     elif bandit == 'LinUCB':
         policy = linucb.LinUCB(historystorage, modelstorage, actionstorage, alpha=0.3, context_dimension=dim)
@@ -160,26 +160,31 @@ def main():
     regret = {}
     cum_regret = {}
 
-    # create results directory
+    # create results directories
     result_dir = os.path.join(os.sep, dataset_path, 'results')
     if not os.path.exists(result_dir):
         os.makedirs(result_dir)
+    regret_dir = os.path.join(result_dir, 'regret')
+    if not os.path.exists(regret_dir):
+        os.makedirs(regret_dir)
+    cum_regret_dir = os.path.join(result_dir, 'cum_regret')
+    if not os.path.exists(cum_regret_dir):
+        os.makedirs(cum_regret_dir)
 
     # run algorithms
     bandits = ['LinThompSamp']
     for i, bandit in enumerate(bandits):
-        for r in [0.01, 0.02, 0.05, 0.1, 0.2]:
-            policy = policy_generation(bandit, d, k, numUsers, r)
-            seq_error = policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k)
-            regret[bandit] = regret_calculation(seq_error)
-            cum_regret[bandit] = seq_error
-            # save results
-            fileObject = open(os.path.join(os.sep, result_dir, bandit), 'wb')
-            regretObject = open(os.path.join(os.sep, result_dir, bandit + '_regret_' + str(r)), 'wb')
-            pickle.dump(cum_regret[bandit],fileObject)
-            pickle.dump(regret[bandit], regretObject)
-            fileObject.close()
-            regretObject.close()
+        policy = policy_generation(bandit, d, k, numUsers)
+        seq_error = policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k)
+        regret[bandit] = regret_calculation(seq_error)
+        cum_regret[bandit] = seq_error
+        # save results
+        fileObject = open(os.path.join(cum_regret_dir, bandit + str(r)), 'wb')
+        regretObject = open(os.path.join(regret_dir, bandit + str(r)), 'wb')
+        pickle.dump(cum_regret[bandit],fileObject)
+        pickle.dump(regret[bandit], regretObject)
+        fileObject.close()
+        regretObject.close()
 
 if __name__ == '__main__':
     main()
