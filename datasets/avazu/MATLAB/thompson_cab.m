@@ -16,7 +16,8 @@ X = permute(X,[1 3 2]);           % use this to get the corresponding version of
 T = size(X, 1);                     % number of training samples
 d = size(X, 3);                     % dimension of the item vectors
 K = size(X, 2);                     % num of item vectors per round
-numUsers = max(users)+1;            % number or users (+1 since 0 is included)
+% careful here
+numUsers = max(users);            % number or users (+1 since 0 is included)
 used = zeros(1, numUsers);          % number of times each user gets served
 
 % Thompson sampling parameters
