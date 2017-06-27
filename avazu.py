@@ -67,7 +67,7 @@ def policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k):
         for t in range(times):
             full_context = {}
             for action_id in action_ids:
-                full_context[action_id] = np.array(streaming_batch.iloc[t*k+action_id][1:]) # don't include the index
+                full_context[action_id] = np.array(streaming_batch.iloc[t*k+action_id]) # don't include the index
 
             # get next (one) action to perform and its reward
             history_id, action = policy.get_action(full_context, 1)
@@ -91,7 +91,7 @@ def policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k):
             user = users.iloc[t*k]['user_id']
             full_context = {}
             for action_id in action_ids:
-                full_context[action_id] = np.array(streaming_batch.iloc[t*k+action_id][1:])
+                full_context[action_id] = np.array(streaming_batch.iloc[t*k+action_id])
 
             history_id, action = policy.get_action(full_context, user)
             reward = reward_list.iloc[t*k+action[0].action]['click']
