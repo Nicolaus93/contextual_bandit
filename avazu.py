@@ -91,7 +91,7 @@ def policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k):
             user = users.iloc[t*k]['user_id']
             full_context = {}
             for action_id in action_ids:
-                full_context[action_id] = np.array(streaming_batch.iloc[t*k+action_id][1:])
+                full_context[action_id] = np.array(streaming_batch.iloc[t*k+action_id])
 
             history_id, action = policy.get_action(full_context, user)
             reward = reward_list.iloc[t*k+action[0].action]['click']
@@ -179,8 +179,8 @@ def main():
         regret[bandit] = regret_calculation(seq_error)
         cum_regret[bandit] = seq_error
         # save results
-        fileObject = open(os.path.join(cum_regret_dir, bandit, 'wb')
-        regretObject = open(os.path.join(regret_dir, bandit, 'wb')
+        fileObject = open(os.path.join(cum_regret_dir, bandit, 'wb'))
+        regretObject = open(os.path.join(regret_dir, bandit, 'wb'))
         pickle.dump(cum_regret[bandit],fileObject)
         pickle.dump(regret[bandit], regretObject)
         fileObject.close()
