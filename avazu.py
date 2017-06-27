@@ -31,7 +31,7 @@ def get_data(dataset):
     return streaming_batch, users, reward_list
 
 
-def policy_generation(bandit, dim, t, numUsers):
+def policy_generation(bandit, dim, t, numUsers, r):
     historystorage = history.MemoryHistoryStorage()
     modelstorage = model.MemoryModelStorage()
     actionstorage = list(range(k))
@@ -166,19 +166,20 @@ def main():
         os.makedirs(result_dir)
 
     # run algorithms
-    bandits = ['random']
+    bandits = ['LinThompSamp']
     for i, bandit in enumerate(bandits):
-        policy = policy_generation(bandit, d, k, numUsers)
-        seq_error = policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k)
-        regret[bandit] = regret_calculation(seq_error)
-        cum_regret[bandit] = seq_error
-        # save results
-        fileObject = open(os.path.join(os.sep, result_dir, bandit), 'wb')
-        regretObject = open(os.path.join(os.sep, result_dir, bandit + '_regret'), 'wb')
-        pickle.dump(cum_regret[bandit],fileObject)
-        pickle.dump(regret[bandit], regretObject)
-        fileObject.close()
-        regretObject.close()
+        for r in [0.01, 0.02, 0.05, 0.1, 0.2]:
+            policy = policy_generation(bandit, d, k, numUsers, r)
+            seq_error = policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k)
+            regret[bandit] = regret_calculation(seq_error)
+            cum_regret[bandit] = seq_error
+            # save results
+            fileObject = open(os.path.join(os.sep, result_dir, bandit), 'wb')
+            regretObject = open(os.path.join(os.sep, result_dir, bandit + '_regret_' + str(r)), 'wb')
+            pickle.dump(cum_regret[bandit],fileObject)
+            pickle.dump(regret[bandit], regretObject)
+            fileObject.close()
+            regretObject.close()
 
 if __name__ == '__main__':
     main()
