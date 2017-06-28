@@ -11,7 +11,6 @@ datasets (use preprocess_hashing.py), and then you can run this example.
 import pandas as pd
 import numpy as np
 from multiprocess import thomp_cab
-# from striatum.bandit import linthompsamp, linucb, cab, thomp_cab
 import time
 import os
 import argparse
@@ -35,7 +34,7 @@ def get_data(dataset):
 def policy_generation(bandit, dim, t, numUsers):
     if bandit == 'ThompCab':
         policy = thomp_cab.ThompCAB(numUsers, d=dim, minUsed=1, p=1,
-                                        gamma=0.2, delta=0.1, R=0.02, epsilon=1/np.log(t))
+                                        gamma=0.2, delta=0.1, R=0.02, epsilon=1/np.log(t/numUsers))
     elif bandit == 'random':
         policy = 0
 
@@ -43,36 +42,18 @@ def policy_generation(bandit, dim, t, numUsers):
 
 
 def policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k):
+    """
+    k - items per round
+    """
     print(bandit)
+
     times = len(streaming_batch) // k
-    seq_error = np.zeros(shape=(times, 1))
-    action_ids = range(k)
+    seq_error = [0] * times
     start = time.time()
 
-    if bandit in ['LinUCB', 'LinThompSamp']:
+    if bandit in ['Cab', 'ThompCab']:
         for t in range(times):
-            full_context = {}
-            for action_id in action_ids:
-                full_context[action_id] = np.array(streaming_batch.iloc[t*k+action_id][1:]) # don't include the index
-
-            # get next (one) action to perform and its reward
-            history_id, action = policy.get_action(full_context, 1)
-            reward = reward_list.iloc[t*k+action[0].action]['click']
-            # update policy
-            if not reward:
-                policy.reward(history_id, {action[0].action: 0.0})
-                if t == 0:
-                    seq_error[t] = 1.0
-                else:
-                    seq_error[t] = seq_error[t - 1] + 1.0
-            else:
-                policy.reward(history_id, {action[0].action: 1.0})
-                if t > 0:
-                    seq_error[t] = seq_error[t - 1]
-
-    elif bandit in ['Cab', 'ThompCab']:
-        for t in range(times):
-            if t%100==0:
+            if t % 100 == 0:
                 print('round ' + str(t)) # debugging
 
             user = users.iloc[t*k]['user_id']
@@ -83,7 +64,6 @@ def policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k):
             # update policy
             if not reward:
                 policy.reward(full_context[action_id], reward, user, action_id)
-
                 if t == 0:
                     seq_error[t] = 1.0
                 else:
@@ -95,8 +75,8 @@ def policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k):
 
     elif bandit == 'random':
         for t in range(times):
-            action = np.random.randint(0, 10)
-            reward = reward_list.iloc[t*k+action]['click']
+            action_id = np.random.randint(0, 10)
+            reward = reward_list.iloc[t*k+action_id]['click']
             if not reward:
                 if t == 0:
                     seq_error[t] = 1.0
