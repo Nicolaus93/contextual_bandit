@@ -10,7 +10,7 @@ datasets (use preprocess_hashing.py), and then you can run this example.
 
 import pandas as pd
 import numpy as np
-from multiprocess import thomp_cab
+from bandits import thomp_cab
 import time
 import os
 import argparse
@@ -21,7 +21,7 @@ def get_data(dataset):
     file_path = os.getcwd()
     d = os.path.join(os.sep, file_path, 'datasets/avazu')
     directory = os.path.join(os.sep, d, dataset)
-    streaming_batch = pd.read_csv(os.path.join(os.sep, directory, 'processed.csv'))
+    streaming_batch = pd.read_csv(os.path.join(os.sep, directory, 'small.csv'))
     try:
         streaming_batch.drop('Unnamed: 0', inplace=True, axis=1)
     except:
@@ -34,7 +34,7 @@ def get_data(dataset):
 def policy_generation(bandit, dim, t, numUsers):
     if bandit == 'ThompCab':
         policy = thomp_cab.ThompCAB(numUsers, d=dim, minUsed=1, p=1,
-                                        gamma=0.2, delta=0.1, R=0.02, epsilon=1/np.log(t/numUsers))
+                                        gamma=0.1, delta=0.1, R=0.02, epsilon=1/np.log(t/numUsers))
     elif bandit == 'random':
         policy = 0
 
@@ -114,6 +114,8 @@ def main():
         print(line.rstrip())
     streaming_batch, users, reward_list = get_data(dataset)
     numUsers = len(users['user_id'].unique())
+
+    # streaming_batch = streaming_batch.iloc[:1000]
 
     time = len(streaming_batch)//k
     d = streaming_batch.shape[1]
