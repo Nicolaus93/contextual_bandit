@@ -156,10 +156,6 @@ def main():
     d = streaming_batch.shape[1]
     print("rounds: {}".format(time))
 
-    # conduct regret analyses
-    regret = {}
-    cum_regret = {}
-
     # create results directories
     result_dir = os.path.join(os.sep, dataset_path, 'results')
     if not os.path.exists(result_dir):
@@ -171,7 +167,9 @@ def main():
     if not os.path.exists(cum_regret_dir):
         os.makedirs(cum_regret_dir)
 
-    # run algorithms
+    # conduct regret analyses
+    regret = {}
+    cum_regret = {}
     bandits = ['LinThompSamp']
     for i, bandit in enumerate(bandits):
         policy = policy_generation(bandit, d, k, numUsers)
@@ -179,8 +177,8 @@ def main():
         regret[bandit] = regret_calculation(seq_error)
         cum_regret[bandit] = seq_error
         # save results
-        fileObject = open(os.path.join(cum_regret_dir, bandit, 'wb'))
-        regretObject = open(os.path.join(regret_dir, bandit, 'wb'))
+        fileObject = open(os.path.join(cum_regret_dir, bandit), 'wb')
+        regretObject = open(os.path.join(regret_dir, bandit), 'wb')
         pickle.dump(cum_regret[bandit],fileObject)
         pickle.dump(regret[bandit], regretObject)
         fileObject.close()
