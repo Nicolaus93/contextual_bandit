@@ -2,13 +2,10 @@
 Context aware clustering of bandits based on Thompson sampling
 """
 
-import logging
 import time
 import numpy as np
 import multiprocessing as mp
 from itertools import repeat
-
-LOGGER = logging.getLogger(__name__)
 
 
 class ThompCAB(object):
@@ -30,18 +27,17 @@ class ThompCAB(object):
         self.gamma = gamma
         self.p = p
         self.t = 0
-        # self.used = np.zeros((self.numUsers),dtype=int) # for user inverse
-        # self.used = [0] * self.numUsers
         self.used = np.zeros(self.numUsers)
-        self.updated = [0] * self.numUsers
+        # self.updated = [0] * self.numUsers
+        self.updated = set()
         # Thompson sampling parameters
         self.v = R * np.sqrt(24 / epsilon
                              * self.d
                              * np.log(1 / delta))
-        self._init_action_model()
+        self._init_model()
 
 
-    def _init_action_model(self):
+    def _init_model(self):
         """
         """
         self.mu_hat = np.zeros(shape=(self.numUsers,self.d))
@@ -99,7 +95,7 @@ class ThompCAB(object):
 
         # results = [pool.apply(cube, args=(x,)) for x in range(1,7)]
 
-
+    #@profile
     def _compute_neigh_vectorized(self, context_array, user):
         """
         context_array: row vector
@@ -108,16 +104,11 @@ class ThompCAB(object):
         K = len(context_array)
         # define neighborood sets
         self.N = np.zeros(shape=(self.numUsers, K), dtype=int)
-        # self.CB = np.zeros(shape=(K, self.numUsers))
 
         # sample mu tilde
-        for j in range(self.numUsers):
-            if self.used[j] >= self.minUsed and self.updated[j]:
-                    self.mu_tilde[j] = np.random.multivariate_normal(
-                            self.mu_hat[j].flat, self.v**2 * self.B_inv[j])
+        for j in self.updated:
+            self.mu_tilde[j] = np.random.multivariate_normal(self.mu_hat[j].flat, self.v**2 * self.B_inv[j])
 
-        # self.mu_tilde[user] = np.random.multivariate_normal(
-        #                     self.mu_hat[user].flat, self.v**2 * self.B_inv[user])
 
         """
         # # using indices for users
@@ -143,16 +134,28 @@ class ThompCAB(object):
         t = np.where(self.used == 0)[0]
         self.N[t,:] = 0
 
+
+    def _compute_neigh_vectorized2(self, context_array, user):
         """
-        # working (?) version
-        estimated_reward = context_array.dot(self.mu_hat.T)
-        payoff = context_array.dot(self.mu_tilde.T)
+        context_array: row vector
+        user: user_id
+        """
+        K = len(context_array)
+        # define neighborood sets
+        self.N = np.zeros(shape=(self.numUsers, K), dtype=int)
+
+        # sample mu tilde
+        for j in range(self.numUsers):
+            if self.used[j] >= self.minUsed and self.updated[j]:
+                    self.mu_tilde[j] = np.random.multivariate_normal(
+                            self.mu_hat[j].flat, self.v**2 * self.B_inv[j])
+
+        estimated_reward = self.mu_hat.dot(context_array.T)
+        payoff = self.mu_tilde.dot(context_array.T)
         self.CB = np.abs(payoff - estimated_reward)
-        i, j = np.where( np.abs(estimated_reward - estimated_reward[:,user][..., np.newaxis]) <
-                        self.CB[:, user][..., np.newaxis] + self.CB )
-        self.N[j, i] = 1
-        self.CB = self.CB.T
-        """
+        i, j = np.where( np.abs(payoff - payoff[user]) < 
+            self.CB[user] + self.CB)
+        self.N[i, j] = 1
 
 
     def get_action(self, context_array, user):
@@ -161,7 +164,7 @@ class ThompCAB(object):
         self.t += 1
         # update parameters in order to sample user's mu tilde
         self.used[user] += 1
-        self.updated[user] = 1
+        self.updated.add(user)
         # self._compute_neighboroods(context_array, user)
         self._compute_neigh_vectorized(context_array, user)
         avg_mu_tilde = self.mu_tilde.T.dot(self.N) / np.sum(self.N, axis=0)
@@ -169,18 +172,22 @@ class ThompCAB(object):
         return np.argmax(payoff)
 
 
+    #@profile
     def reward(self, x, reward, user, action_id):
         """
         """
-        self.updated = [0] * self.numUsers
+        self.updated = set()
         self._update(user, x, reward)
         if self.CB[user, action_id] <= self.gamma/4:
-            # print(np.sum(self.N[:,action_id]))
-            for j in self.N[:,action_id]:
+            i = 0
+            # to_update = np.where((self.CB[:, action_id]>0) & (self.CB[:, action_id]>self.gamma/4))
+            for j, value in enumerate(self.N[:,action_id]):
                 if j == user:
                     continue
-                elif self.CB[j, action_id] <= self.gamma/4:
+                elif self.CB[j, action_id] <= self.gamma/4 and \
+                        self.CB[j, action_id] > 0:
                     self._update(j, x, reward)
+                    i += 1
 
 
     def _update(self, user, x, reward):
@@ -192,7 +199,8 @@ class ThompCAB(object):
             - user:  (int) id of the user
             - x:     (np.array) context of the action performed
         """
-        self.updated[user] = 1 # update to sample at next step
+        # self.updated[user] = 1 # update to sample at next step
+        self.updated.add(user)
         self.f[user] += reward * x
         B_inv = sherman_morrison(self.B_inv[user], x)
         self.B_inv[user] = B_inv
@@ -208,11 +216,6 @@ def sherman_morrison(M_inv, x):
         (M + x*x')^-1 computed using Sherman-Morrison formula
     """
     return M_inv - M_inv.dot(x.dot(x.T.dot(M_inv)))/(1+x.T.dot(M_inv.dot(x)))
-
-
-
-
-
 
 
 
