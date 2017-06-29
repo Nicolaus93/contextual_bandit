@@ -36,26 +36,9 @@ def main():
         axes = plt.gca()
         plt.title("Regret Bound with respect to T")
 
-    # def draw(self): 
-    #     ax = self.figure.add_subplot(111)
-    #     scatter = ax.scatter(np.random.randn(100), np.random.randn(100))
-    #     legend = ax.legend()
-    #     legend.draggable(state=True)
     p = plt.legend(loc='upper left')
     p.draggable(True)
-
     plt.show()
-
-    # for i, bandit in enumerate(cum_regret):
-    #     time = len(cum_regret[bandit])
-    #     plt.plot(range(time), cum_regret[bandit], c=col[i], ls='-', label=bandit)
-    #     plt.xlabel('time')
-    #     plt.ylabel('regret')
-    #     plt.legend(loc='upper left')
-    #     axes = plt.gca()
-    #     plt.title("Regret Bound with respect to T")
-
-    # plt.show()
 
 if __name__ == '__main__':
     main()
