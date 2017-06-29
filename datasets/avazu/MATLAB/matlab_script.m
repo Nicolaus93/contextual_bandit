@@ -1,12 +1,12 @@
 %% preprocessing
-%{
-features = csvread('../reduced/processed.csv',1,1);  % avoid reading column and row names
-rewards = csvread('../reduced/reward_list.csv',1,1); 
-users_id = csvread('../reduced/users.csv',1,1);
+
+features = csvread('../filtered_20yes_100no/processed.csv',1,0);  % avoid reading column names
+rewards = csvread('../filtered_20yes_100no/reward_list.csv',1,0); 
+users_id = csvread('../filtered_20yes_100no/users.csv',1,0);
 
 K = 10;                         % items per round
-%T = size(features,1) / K;       % number of rounds
-T = 10000;
+T = size(features,1) / K;       % number of rounds
+%T = 10000;
 d = size(features,2);           % number of features
 
 X = zeros(T,K,d);
@@ -19,18 +19,19 @@ for i=1:K:T*K
     users(t) = users_id(i)+1;       % we add 1 since 0 is included (it might cause problems with indices)
     t = t + 1;
 end
-%}
 
-%% artificial data
-T = 500;
-d = 10;
-k = 10;
-classes = 2;
-numUsers = 1;
-[X,Y,users,user_models] = artificial_data_generator(T,d,k,classes,numUsers); % T,d,k
+%% random
+cregret = random(T, K, Y);
 
 %% thompson sampling
-thompson = thompson_sampling(X,Y);
+thompson_single = TS_one(X,Y);
+
+%% thompson sampling for each user
+thompson_multi = TS_single(X,Y,users);
+
+%% linUCB single
+alpha = 0.2;
+linUCB_single = LinUCB_One(X,Y, alpha);
 
 %% thompson cab
 gamma = 0.1;
@@ -39,28 +40,20 @@ minUsed = 1;
 model = thompson_cab(X, Y, users, gamma, p, minUsed);
 
 %% Cab
-p = 1;
+p = 0.5;
 model2 = CAB1_woow_fastened(X, Y, users, 0.12, 0.20, minUsed, p);
-
-%% random
-cregret = random(T, k, Y);
-
-%% vectorized thompson cab
-addpath(genpath('/mtimesx_20110223/'));
-cd 'mtimesx_20110223'
-model3 = vect_thompson_cab(X, Y, users, gamma);
 
 %% plot 
 
 % plotting the cregret vs time 
 train=1:T;
 hold on
-plot(train, train, 'DisplayName', 'y=x')
-plot(train, log(train), 'DisplayName', 'y=log(x)')
-plot(train,thompson.cregret,'y','DisplayName','Thompson Sampling')
-plot(train,model.cregret,'b','DisplayName','Thompson CAB')
-plot(train,cregret,'r','DisplayName','Random')
-plot(train,model2.cregret,'g','DisplayName','Cab')
+plot(train,thompson_single.cregret,'g','DisplayName','Thompson Sampling single')
+plot(train,thompson_multi.cregret,'b','DisplayName','Thompson Sampling multi')
+%plot(train,model.cregret,'b','DisplayName','Thompson CAB')
+plot(train,cregret,'y','DisplayName','Random')
+plot(train,linUCB_single.cregret,'r','DisplayName','linUCB single')
+%plot(train,model2.cregret,'m','DisplayName','Cab')
 
 title('Avazu')
 xlabel('Time')

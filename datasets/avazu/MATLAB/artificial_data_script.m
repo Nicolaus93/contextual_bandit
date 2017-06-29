@@ -21,7 +21,7 @@ gamma = 0.1;
 model = thompson_cab(X, Y, users, gamma);
 
 %% Cab
-p = 0.5;
+p = 1;
 minused = 1;
 model2 = CAB1_woow_fastened(X, Y, users, 0.12, 0.20, minUsed, p);
 
@@ -38,7 +38,7 @@ plot(train,thompson_multi.cregret,'b','DisplayName','Thompson Sampling multi')
 plot(train,model.cregret,'r','DisplayName','Thompson CAB')
 plot(train,cregret,'y','DisplayName','Random')
 %plot(train,linUCB_single.cregret,'r','DisplayName','linUCB single')
-%plot(train,model2.cregret,'m','DisplayName','Cab')
+plot(train,model2.cregret,'m','DisplayName','Cab')
 
 title('Artificial Data')
 xlabel('Time')
