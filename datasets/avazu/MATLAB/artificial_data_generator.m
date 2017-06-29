@@ -65,8 +65,7 @@ for t = 1:T
     %Xt = eye(K,d);
     X(t,:,:) = bsxfun(@rdivide,Xt,sqrt(sum(Xt.^2,2)))';
     if find(isnan(X(t,:,:)))        
-        X(t,isnan(X(t,:,:))) = zeros(size(X(t,isnan(X(t,:,:)))));
-        %X(t,isnan(X(t,:,:))) = [1,0,0,0,0,0,0,0,0,0];
+        X(t,isnan(X(t,:,:))) = zeros(size(X(t,isnan(X(t,:,:)))));        
     end
 end
 
