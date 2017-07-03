@@ -10,7 +10,7 @@ datasets (use preprocess_hashing.py), and then you can run this example.
 
 import pandas as pd
 import numpy as np
-from bandits import thomp_cab
+from bandits import thomp_cab, thomp_one
 import time
 import os
 import argparse
@@ -21,62 +21,155 @@ def get_data(dataset):
     file_path = os.getcwd()
     d = os.path.join(os.sep, file_path, 'datasets/avazu')
     directory = os.path.join(os.sep, d, dataset)
-    streaming_batch = pd.read_csv(os.path.join(os.sep, directory, 'small.csv'))
-    try:
-        streaming_batch.drop('Unnamed: 0', inplace=True, axis=1)
-    except:
-        pass
+    streaming_batch = pd.read_csv(os.path.join(os.sep, directory, 'medium.csv'))
     users = pd.read_csv(os.path.join(os.sep, directory, 'users.csv'))
     reward_list = pd.read_csv(os.path.join(os.sep, directory, 'reward_list.csv'))
-    return streaming_batch, users, reward_list
+    return streaming_batch, reward_list, users
+
+
+def transform_data(contexts, reward_list, users, k):
+    """
+    """
+    X = contexts.as_matrix()
+    Y = reward_list.as_matrix()
+    users = users.as_matrix()
+
+    T, d = X.shape
+    T = int(T/k)
+    X = X.reshape((T,k,d))
+    Y = Y[:T*10]
+    Y = Y.reshape((T,k))
+    users = users[:T*10]
+    users = users.reshape((T,k))
+
+    return X, Y, users
+
+
+def get_data_it(dataset, K):
+    """
+    return iterators
+    """
+    file_path = os.getcwd()
+    d = os.path.join(file_path, 'datasets/avazu')
+    directory = os.path.join(d, dataset)
+    X = pd.read_csv(os.path.join(directory,'small.csv'), chunksize=K, engine='c')
+    Y = pd.read_csv(os.path.join(directory,'reward_list.csv'), chunksize=K)
+    users = pd.read_csv(os.path.join(directory,'users.csv'), chunksize=K)
+    return X, Y, users
+
+
+# @profile
+def policy_evaluation_it(policy, bandit, X, Y, users):
+    """
+    using iterators
+    k - items per round
+    """
+    print(bandit)
+    
+    start = time.time()
+    seq_error = []
+
+    if bandit in ['Cab', 'ThompCab']:
+
+        t = 0
+        for x, y, u in zip(X,Y,users):
+            if t % 100 == 0:
+                print('round ' + str(t)) # debugging
+
+            user = u.loc[0].values[0]
+            full_context = x.values
+            action_id = policy.get_action(full_context, user)
+            reward = y.loc[action_id].values
+
+            # update policy
+            if not reward:
+                policy.reward(full_context[action_id], reward, user, action_id)
+                if t == 0:
+                    seq_error.append(1)
+                else:
+                    seq_error.append(seq_error[t-1]+1)
+            else:
+                policy.reward(full_context[action_id], reward, user, action_id)
+                if t > 0:
+                    seq_error.append(seq_error[t-1])
+
+            t += 1
+
+    return seq_error
 
 
 def policy_generation(bandit, dim, t, numUsers):
     if bandit == 'ThompCab':
-        policy = thomp_cab.ThompCAB(numUsers, d=dim, minUsed=1, p=1,
-                                        gamma=0.1, delta=0.1, R=0.02, epsilon=1/np.log(t/numUsers))
+        policy = thomp_cab.ThompCAB(numUsers, d=dim, gamma=0.05, delta=0.1, 
+                                    R=0.02, epsilon=1/np.log(t/numUsers), random_state=3)
+
+    elif bandit == 'ThompsonOne':
+        policy = thomp_one.ThompsonOne(d=dim, delta=0.1, R=0.02, 
+                                epsilon=1/np.log(t), random_state=4)
+
     elif bandit == 'random':
         policy = 0
 
     return policy
 
 
-def policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k):
-    """
-    k - items per round
-    """
+@profile
+def policy_evaluation(policy, bandit, X, Y, users):
+
     print(bandit)
 
-    times = len(streaming_batch) // k
-    seq_error = [0] * times
-    start = time.time()
+    T, d, k = X.shape
+    seq_error = [0] * T
 
-    if bandit in ['Cab', 'ThompCab']:
-        for t in range(times):
-            if t % 100 == 0:
-                print('round ' + str(t)) # debugging
+    if bandit in ['ThompCab']:
+        for t in range(T):
 
-            user = users.iloc[t*k]['user_id']
-            full_context = streaming_batch.iloc[t*k:t*k+10].values
+            if t % 1000 == 0:
+                print(t)
+
+            user = users[t,0]
+            full_context = X[t]
             action_id = policy.get_action(full_context, user)
-            reward = reward_list.iloc[t*k+action_id]['click']
+            reward = Y[t, action_id]
 
-            # update policy
+            # update
+            policy.reward(full_context[action_id], reward, action_id, user)
             if not reward:
-                policy.reward(full_context[action_id], reward, user, action_id)
                 if t == 0:
-                    seq_error[t] = 1.0
+                    seq_error[t] = 1
                 else:
-                    seq_error[t] = seq_error[t - 1] + 1.0
+                    seq_error[t] = seq_error[t-1] + 1
             else:
-                policy.reward(full_context[action_id], reward, user, action_id)
                 if t > 0:
-                    seq_error[t] = seq_error[t - 1]
+                    seq_error[t] = seq_error[t-1]
+
+
+    elif bandit in ['ThompsonOne']:
+        for t in range(T):
+
+            if t % 1000 == 0:
+                print(t)
+
+            user = users[t,0]
+            full_context = X[t]
+            action_id = policy.get_action(full_context)
+            reward = Y[t, action_id]
+
+            if not reward:
+                policy.reward(full_context[action_id], reward, action_id)
+                if t == 0:
+                    seq_error[t] = 1
+                else:
+                    seq_error[t] = seq_error[t-1] + 1
+            else:
+                policy.reward(full_context[action_id], reward, action_id)
+                if t > 0:
+                    seq_error[t] = seq_error[t-1]
 
     elif bandit == 'random':
-        for t in range(times):
+        for t in range(T):
             action_id = np.random.randint(0, 10)
-            reward = reward_list.iloc[t*k+action_id]['click']
+            reward = Y[t, action_id]
             if not reward:
                 if t == 0:
                     seq_error[t] = 1.0
@@ -85,9 +178,6 @@ def policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k):
             else:
                 if t > 0:
                     seq_error[t] = seq_error[t - 1]
-
-    end = time.time()
-    print('time: {} sec'.format(end-start))
 
     return seq_error
 
@@ -99,7 +189,7 @@ def regret_calculation(seq_error):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Multi Armed Bandit algorithms.')
+    parser = argparse.ArgumentParser(description='Multi Armed Bandit algorithms on Avazu.')
     parser.add_argument(dest='dataset', metavar='dataset', type=str, nargs=1,
                         help='the dataset to use')
     args = parser.parse_args()
@@ -111,15 +201,17 @@ def main():
     for i, line in enumerate(open(info_file, 'r')):
         if i == 0:
             k = int(line.split()[0])
+        elif i == 1:
+            numUsers = int(line.split()[2])
+            print(numUsers)
+        elif i == 3:
+            time = int(line.split()[0]) / k
+        elif i == 4:
+            d = int(line.split()[0])
         print(line.rstrip())
-    streaming_batch, users, reward_list = get_data(dataset)
-    numUsers = len(users['user_id'].unique())
 
-    # streaming_batch = streaming_batch.iloc[:1000]
-
-    time = len(streaming_batch)//k
-    d = streaming_batch.shape[1]
-    print("rounds: {}".format(time))
+    X, Y, users = get_data(dataset)
+    X, Y, users = transform_data(X, Y, users, k)
 
     # create results directories
     result_dir = os.path.join(os.sep, dataset_path, 'results')
@@ -137,10 +229,10 @@ def main():
     cum_regret = {}
 
     # run algorithms
-    bandits = ['ThompCab', 'random']
+    bandits = ['ThompsonOne', 'ThompCab', 'random']
     for i, bandit in enumerate(bandits):
         policy = policy_generation(bandit, d, time, numUsers)
-        seq_error = policy_evaluation(policy, bandit, streaming_batch, users, reward_list, k)
+        seq_error = policy_evaluation(policy, bandit, X, Y, users)
         regret[bandit] = regret_calculation(seq_error)
         cum_regret[bandit] = seq_error
         # save results
@@ -150,6 +242,7 @@ def main():
         pickle.dump(regret[bandit], regretObject)
         fileObject.close()
         regretObject.close()
+
 
 if __name__ == '__main__':
     main()
