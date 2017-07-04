@@ -195,7 +195,7 @@ if __name__ == '__main__':
     rewards = pd.DataFrame(df['click'])
     users = pd.DataFrame(df['user_id'])
     df = df.drop(['click', 'user_id'], 1) # remove click and user_id
-    usr_msg = 'There are ' + str(len(users['user_id'].unique())) + ' unique users after preproccesing.'
+    usr_msg = 'There are ' + str(len(users['user_id'].unique())) + ' unique users after preprocessing.'
 
     # redefine users
     le = LabelEncoder()
@@ -204,7 +204,7 @@ if __name__ == '__main__':
 
     # some info
     (rows, cols) = df.shape
-    msg = 'The preprocessed dataset contains: \n    -{} rows \n    -{} columns.\n It looks like this:\n'.format(rows,cols)
+    msg = 'The preprocessed dataset contains: \n    {} rows \n    {} columns.\n It looks like this:\n'.format(rows,cols)
     print(msg)
     print(df.head())
 
