@@ -10,7 +10,7 @@ datasets (use preprocess_hashing.py), and then you can run this example.
 
 import pandas as pd
 import numpy as np
-from bandits import thomp_cab, thomp_one
+from bandits import thomp_cab, thomp_one, thomp_multi
 import time
 import os
 import argparse
@@ -21,7 +21,7 @@ def get_data(dataset):
     file_path = os.getcwd()
     d = os.path.join(os.sep, file_path, 'datasets/avazu')
     directory = os.path.join(os.sep, d, dataset)
-    streaming_batch = pd.read_csv(os.path.join(os.sep, directory, 'medium.csv'))
+    streaming_batch = pd.read_csv(os.path.join(os.sep, directory, 'processed.csv'))
     users = pd.read_csv(os.path.join(os.sep, directory, 'users.csv'))
     reward_list = pd.read_csv(os.path.join(os.sep, directory, 'reward_list.csv'))
     return streaming_batch, reward_list, users
@@ -37,9 +37,9 @@ def transform_data(contexts, reward_list, users, k):
     T, d = X.shape
     T = int(T/k)
     X = X.reshape((T,k,d))
-    Y = Y[:T*10]
+    # Y = Y[:T*10]
     Y = Y.reshape((T,k))
-    users = users[:T*10]
+    # users = users[:T*10]
     users = users.reshape((T,k))
 
     return X, Y, users
@@ -63,6 +63,7 @@ def policy_evaluation_it(policy, bandit, X, Y, users):
     """
     using iterators
     k - items per round
+    THIS IS SLOW!
     """
     print(bandit)
     
@@ -100,12 +101,16 @@ def policy_evaluation_it(policy, bandit, X, Y, users):
 
 def policy_generation(bandit, dim, t, numUsers):
     if bandit == 'ThompCab':
-        policy = thomp_cab.ThompCAB(numUsers, d=dim, gamma=0.05, delta=0.1, 
+        policy = thomp_cab.ThompCAB(numUsers, d=dim, gamma=0.1, delta=0.1, 
                                     R=0.02, epsilon=1/np.log(t/numUsers), random_state=3)
 
     elif bandit == 'ThompsonOne':
         policy = thomp_one.ThompsonOne(d=dim, delta=0.1, R=0.02, 
                                 epsilon=1/np.log(t), random_state=4)
+
+    elif bandit == 'ThompMulti':
+        policy = thomp_multi.ThompMulti(numUsers, d=dim, delta=0.1, R=0.02,
+                                epsilon=1/np.log(t/numUsers), random_state=4)
 
     elif bandit == 'random':
         policy = 0
@@ -113,7 +118,7 @@ def policy_generation(bandit, dim, t, numUsers):
     return policy
 
 
-@profile
+# @profile
 def policy_evaluation(policy, bandit, X, Y, users):
 
     print(bandit)
@@ -121,10 +126,10 @@ def policy_evaluation(policy, bandit, X, Y, users):
     T, d, k = X.shape
     seq_error = [0] * T
 
-    if bandit in ['ThompCab']:
+    if bandit in ['ThompCab', 'ThompMulti']:
         for t in range(T):
 
-            if t % 1000 == 0:
+            if t % 10000 == 0:
                 print(t)
 
             user = users[t,0]
@@ -147,7 +152,7 @@ def policy_evaluation(policy, bandit, X, Y, users):
     elif bandit in ['ThompsonOne']:
         for t in range(T):
 
-            if t % 1000 == 0:
+            if t % 10000 == 0:
                 print(t)
 
             user = users[t,0]
@@ -168,7 +173,7 @@ def policy_evaluation(policy, bandit, X, Y, users):
 
     elif bandit == 'random':
         for t in range(T):
-            action_id = np.random.randint(0, 10)
+            action_id = np.random.randint(0, k)
             reward = Y[t, action_id]
             if not reward:
                 if t == 0:
@@ -203,7 +208,6 @@ def main():
             k = int(line.split()[0])
         elif i == 1:
             numUsers = int(line.split()[2])
-            print(numUsers)
         elif i == 3:
             time = int(line.split()[0]) / k
         elif i == 4:
@@ -229,7 +233,7 @@ def main():
     cum_regret = {}
 
     # run algorithms
-    bandits = ['ThompsonOne', 'ThompCab', 'random']
+    bandits = ['ThompsonOne', 'ThompMulti', 'random']
     for i, bandit in enumerate(bandits):
         policy = policy_generation(bandit, d, time, numUsers)
         seq_error = policy_evaluation(policy, bandit, X, Y, users)
