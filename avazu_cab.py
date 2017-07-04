@@ -3,9 +3,10 @@
 ==============================
 Contextual bandit on Avazu
 ==============================
-The script uses real-world data to conduct contextual bandit experiments. Here we use
-Avazu dataset, which was released by Avazu for a Kaggle competition. Please fist pre-process
-datasets (use preprocess_hashing.py), and then you can run this example.
+The script uses real-world data to conduct contextual bandit experiments.
+Here we use Avazu dataset, which was released by Avazu for a Kaggle
+competition. Please fist pre-process datasets (use preprocess_hashing.py),
+and then you can run this example.
 """
 
 import pandas as pd
@@ -21,10 +22,10 @@ def get_data(dataset):
     file_path = os.getcwd()
     d = os.path.join(os.sep, file_path, 'datasets/avazu')
     directory = os.path.join(os.sep, d, dataset)
-    streaming_batch = pd.read_csv(os.path.join(os.sep, directory, 'processed.csv'))
+    contexts = pd.read_csv(os.path.join(os.sep, directory, 'processed.csv'))
     users = pd.read_csv(os.path.join(os.sep, directory, 'users.csv'))
     reward_list = pd.read_csv(os.path.join(os.sep, directory, 'reward_list.csv'))
-    return streaming_batch, reward_list, users
+    return contexts, reward_list, users
 
 
 def transform_data(contexts, reward_list, users, k):
@@ -33,14 +34,11 @@ def transform_data(contexts, reward_list, users, k):
     X = contexts.as_matrix()
     Y = reward_list.as_matrix()
     users = users.as_matrix()
-
     T, d = X.shape
-    T = int(T/k)
-    X = X.reshape((T,k,d))
-    # Y = Y[:T*10]
-    Y = Y.reshape((T,k))
-    # users = users[:T*10]
-    users = users.reshape((T,k))
+    T = int(T / k)
+    X = X.reshape((T, k, d))
+    Y = Y.reshape((T, k))
+    users = users.reshape((T, k))
 
     return X, Y, users
 
@@ -52,9 +50,9 @@ def get_data_it(dataset, K):
     file_path = os.getcwd()
     d = os.path.join(file_path, 'datasets/avazu')
     directory = os.path.join(d, dataset)
-    X = pd.read_csv(os.path.join(directory,'small.csv'), chunksize=K, engine='c')
-    Y = pd.read_csv(os.path.join(directory,'reward_list.csv'), chunksize=K)
-    users = pd.read_csv(os.path.join(directory,'users.csv'), chunksize=K)
+    X = pd.read_csv(os.path.join(directory, 'small.csv'), chunksize=K, engine='c')
+    Y = pd.read_csv(os.path.join(directory, 'reward_list.csv'), chunksize=K)
+    users = pd.read_csv(os.path.join(directory, 'users.csv'), chunksize=K)
     return X, Y, users
 
 
@@ -66,16 +64,16 @@ def policy_evaluation_it(policy, bandit, X, Y, users):
     THIS IS SLOW!
     """
     print(bandit)
-    
+
     start = time.time()
     seq_error = []
 
     if bandit in ['Cab', 'ThompCab']:
 
         t = 0
-        for x, y, u in zip(X,Y,users):
+        for x, y, u in zip(X, Y, users):
             if t % 100 == 0:
-                print('round ' + str(t)) # debugging
+                print('round ' + str(t))  # debugging
 
             user = u.loc[0].values[0]
             full_context = x.values
@@ -88,29 +86,36 @@ def policy_evaluation_it(policy, bandit, X, Y, users):
                 if t == 0:
                     seq_error.append(1)
                 else:
-                    seq_error.append(seq_error[t-1]+1)
+                    seq_error.append(seq_error[t - 1] + 1)
             else:
                 policy.reward(full_context[action_id], reward, user, action_id)
                 if t > 0:
-                    seq_error.append(seq_error[t-1])
+                    seq_error.append(seq_error[t - 1])
 
             t += 1
 
+    end = time.time()
+    print(end - start)
     return seq_error
 
 
 def policy_generation(bandit, dim, t, numUsers):
     if bandit == 'ThompCab':
-        policy = thomp_cab.ThompCAB(numUsers, d=dim, gamma=0.1, delta=0.1, 
-                                    R=0.02, epsilon=1/np.log(t/numUsers), random_state=3)
+        policy = thomp_cab.ThompCAB(numUsers, d=dim, gamma=0.1, delta=0.1,
+                                    R=0.02, epsilon=1/np.log(t/numUsers),
+                                    random_state=3)
 
     elif bandit == 'ThompsonOne':
         policy = thomp_one.ThompsonOne(d=dim, delta=0.1, R=0.02, 
                                 epsilon=1/np.log(t), random_state=4)
 
-    elif bandit == 'ThompMulti':
+    elif bandit == 'ThompMulti1':
         policy = thomp_multi.ThompMulti(numUsers, d=dim, delta=0.1, R=0.02,
-                                epsilon=1/np.log(t/numUsers), random_state=4)
+                                epsilon=1/np.log(t/numUsers), random_state=None, v=0.1)
+
+    elif bandit == 'ThompMulti2':
+        policy = thomp_multi.ThompMulti(numUsers, d=dim, delta=0.1, R=0.02,
+                                epsilon=1/np.log(t/numUsers), random_state=None, v=0)
 
     elif bandit == 'random':
         policy = 0
@@ -124,6 +129,8 @@ def policy_evaluation(policy, bandit, X, Y, users):
     print(bandit)
 
     T, d, k = X.shape
+    print("k")
+    print(k)
     seq_error = [0] * T
 
     if bandit in ['ThompCab', 'ThompMulti']:
@@ -132,7 +139,7 @@ def policy_evaluation(policy, bandit, X, Y, users):
             if t % 10000 == 0:
                 print(t)
 
-            user = users[t,0]
+            user = users[t, 0]
             full_context = X[t]
             action_id = policy.get_action(full_context, user)
             reward = Y[t, action_id]
@@ -143,11 +150,10 @@ def policy_evaluation(policy, bandit, X, Y, users):
                 if t == 0:
                     seq_error[t] = 1
                 else:
-                    seq_error[t] = seq_error[t-1] + 1
+                    seq_error[t] = seq_error[t - 1] + 1
             else:
                 if t > 0:
-                    seq_error[t] = seq_error[t-1]
-
+                    seq_error[t] = seq_error[t - 1]
 
     elif bandit in ['ThompsonOne']:
         for t in range(T):
@@ -155,7 +161,7 @@ def policy_evaluation(policy, bandit, X, Y, users):
             if t % 10000 == 0:
                 print(t)
 
-            user = users[t,0]
+            user = users[t, 0]
             full_context = X[t]
             action_id = policy.get_action(full_context)
             reward = Y[t, action_id]
@@ -165,15 +171,15 @@ def policy_evaluation(policy, bandit, X, Y, users):
                 if t == 0:
                     seq_error[t] = 1
                 else:
-                    seq_error[t] = seq_error[t-1] + 1
+                    seq_error[t] = seq_error[t - 1] + 1
             else:
                 policy.reward(full_context[action_id], reward, action_id)
                 if t > 0:
-                    seq_error[t] = seq_error[t-1]
+                    seq_error[t] = seq_error[t - 1]
 
     elif bandit == 'random':
         for t in range(T):
-            action_id = np.random.randint(0, k)
+            action_id = np.random.randint(0, 10)
             reward = Y[t, action_id]
             if not reward:
                 if t == 0:
@@ -233,7 +239,7 @@ def main():
     cum_regret = {}
 
     # run algorithms
-    bandits = ['ThompsonOne', 'ThompMulti', 'random']
+    bandits = ['random', 'ThompMulti1', 'ThompMulti2']
     for i, bandit in enumerate(bandits):
         policy = policy_generation(bandit, d, time, numUsers)
         seq_error = policy_evaluation(policy, bandit, X, Y, users)
@@ -242,7 +248,7 @@ def main():
         # save results
         fileObject = open(os.path.join(cum_regret_dir, bandit), 'wb')
         regretObject = open(os.path.join(regret_dir, bandit), 'wb')
-        pickle.dump(cum_regret[bandit],fileObject)
+        pickle.dump(cum_regret[bandit], fileObject)
         pickle.dump(regret[bandit], regretObject)
         fileObject.close()
         regretObject.close()
@@ -250,4 +256,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
