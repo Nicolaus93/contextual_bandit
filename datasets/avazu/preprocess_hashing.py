@@ -2,35 +2,14 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 import random
-import datetime
 import os
 import argparse
 
-def def_user(row):    
-    if row['device_id'] == 'a99f214a':
-        user = 'ip-' + row['device_ip'] + '-' + row['device_model']
-    else:
-        user = 'id-' + row['device_id']
-    return user
-
-def is_app(row):
-    return True if row['site_id'] == '85f751fd' else False
-
-def def_pub(x):
-    y = {}
-    if is_app(x):
-        y['pub_id'] = x['app_id']
-        y['pub_domain'] = x['app_domain']
-        y['pub_category'] = x['app_category']
-    else:
-        y['pub_id'] = x['site_id']
-        y['pub_domain'] = x['site_domain']
-        y['pub_category'] = x['site_category']
-    return pd.Series([y['pub_id'], y['pub_domain'], y['pub_category']])
 
 def feature_hashing(X, N=2, cols=None):
         """A basic hashing implementation with configurable dimensionality/precision
-        Performs the hashing trick on a pandas dataframe, `X`, using the mmh3 library.  
+        Performs the hashing trick on a pandas dataframe, `X`,
+        using the mmh3 library.
         The number of output dimensions (`N`), and columns to hash (`cols`) are
         also configurable.
         Parameters
@@ -49,7 +28,8 @@ def feature_hashing(X, N=2, cols=None):
         ----------
         Cite the relevant literature, e.g. [1]_.  You may also cite these
         references in the notes section above.
-        .. [1] Kilian Weinberger; Anirban Dasgupta; John Langford; Alex Smola; Josh Attenberg (2009). Feature Hashing
+        .. [1] Kilian Weinberger; Anirban Dasgupta;
+        John Langford; Alex Smola; Josh Attenberg (2009). Feature Hashing
         for Large Scale Multitask Learning. Proc. ICML.
         """
         import mmh3
@@ -62,7 +42,7 @@ def feature_hashing(X, N=2, cols=None):
             for pos, val in enumerate(x.values):
                 if val is not None:
                     val = str(pos) + str(val)
-                    tmp[mmh3.hash(val) % N] += 1            
+                    tmp[mmh3.hash(val) % N] += 1
             return pd.Series(tmp, index=new_cols)
 
         new_cols = ['col_%d' % d for d in range(N)]
@@ -77,12 +57,14 @@ def feature_hashing(X, N=2, cols=None):
 
         return X
 
+
 def one_hot_hashing(x):
     """
     Perform one-hot-encoding after hashing trick
     """
     x[np.where(x)[0]] = 1
     return x
+
 
 def one_zero(x):
     """
@@ -91,19 +73,22 @@ def one_zero(x):
     x[x.nonzero()[0]] = 1
     return x
 
+
 def one_normalize(x):
     """
     """
     x[np.where(x)[0]] = 1
     norm = np.sqrt(x.dot(x))
-    return x/norm
+    return x / norm
+
 
 def normalize(x):
     """
     So that each row has norm=1
     """
     norm = np.sqrt(x.dot(x))
-    return x/norm
+    return x / norm
+
 
 def build_dataset(df, k):
     """
@@ -113,7 +98,7 @@ def build_dataset(df, k):
     grouped = df.groupby(['user_id'])   # group by users
     l = []                              # list containing every round
     for name, group in grouped:
-        user_interactions = group.groupby('click') # there will be 2 groups: 0/1
+        user_interactions = group.groupby('click')  # there will be 2 groups: 0/1
         try:
             ones = user_interactions.get_group(1)
         except:
@@ -121,7 +106,7 @@ def build_dataset(df, k):
             continue
         try:
             zeros = user_interactions.get_group(0)
-            zeros = zeros[~zeros.duplicated(keep='first')] # discard duplicates
+            zeros = zeros[~zeros.duplicated(keep='first')]  # discard duplicates
             for index_and_row in ones.iterrows():
                 r = pd.concat([zeros.sample(n=k-1), index_and_row[1].to_frame().transpose()])
                 l.append(r.iloc[np.random.permutation(len(r))])
@@ -131,13 +116,17 @@ def build_dataset(df, k):
     random.shuffle(l)
     return pd.concat(l)
 
+
 if __name__ == '__main__':
+
     parser = argparse.ArgumentParser(description='Preprocess a dataset.')
     parser.add_argument(dest='dataset', metavar='dataset', type=str, nargs=1,
                         help='the dataset to preprocess')
-    parser.add_argument('-k', dest='k', metavar='items_per_round', type=int, nargs=1,
+    parser.add_argument('-k', dest='k', metavar='items_per_round',
+                        type=int, nargs=1,
                         help='number of items per round')
-    parser.add_argument('-d', dest='n_feat', metavar='hashed_features', type=int, nargs=1,
+    parser.add_argument('-d', dest='n_feat', metavar='hashed_features',
+                        type=int, nargs=1,
                         help='number of features after hashing')
 
     args = parser.parse_args()
@@ -147,17 +136,6 @@ if __name__ == '__main__':
     print('reading dataset...')
     df = pd.read_csv(dataset)
 
-    # """
-    # new one
-    # """
-    # df = pd.read_csv('train.csv')
-    # cols = ['device_id', 'device_ip', 'device_model']
-    # df = df.assign(user_id=pd.Series(df[cols].apply(def_user, axis=1)).values)
-    # n = df['user_id'].value_counts()[df['user_id'].value_counts()>=100].index
-    # df = df.loc[df['user_id'].isin(n)]
-    # """
-    # """
-
     try:
         df = df.drop('Unnamed: 0', 1)
     except:
@@ -166,25 +144,15 @@ if __name__ == '__main__':
     usr_msg = 'There are ' + str(len(df['user_id'].unique())) + ' unique users.'
     print(usr_msg)
 
-    # feature engineering
-    print('feature engineering..')
-    cols = ['app_id','app_domain','app_category','site_id','site_domain','site_category']
-    newcols = df[cols].apply(def_pub, axis=1)
-    newcols.columns = ['pub_id', 'pub_domain', 'pub_category']
-    df = df.join(newcols)
-    del newcols
-    # remove unnecessary features
-    cols.extend(('id','hour','C1','device_id','device_ip','device_type','C15','C16','C18','C19'))
-    df = df.drop(cols, 1) # remove id
-
     # Hashing features
-    old_cols = df.columns # keep these for later use   
-    cols = ['pub_id','pub_domain','pub_category','banner_pos','device_model', \
-          'device_conn_type','C14','C17','C20','C21']
+    old_cols = df.columns  # keep these for later use
+    cols = ['pub_id', 'pub_domain', 'pub_category', 'banner_pos',
+            'device_model', 'device_conn_type', 'C14', 'C17',
+            'C20', 'C21']
     df = feature_hashing(df, N=n_feat, cols=cols)
 
     # one hot encoding and normalizing
-    co = [c for c in df.columns if not c in ['user_id','click']]
+    co = [c for c in df.columns if c not in ['user_id', 'click']]
     # df[co] = df[co].apply(one_zero, axis=1)
     # df[co] = df[co].apply(normalize, axis=1)
     df[co] = df[co].apply(one_normalize, axis=1)
@@ -194,7 +162,7 @@ if __name__ == '__main__':
     df = build_dataset(df, k)
     rewards = pd.DataFrame(df['click'])
     users = pd.DataFrame(df['user_id'])
-    df = df.drop(['click', 'user_id'], 1) # remove click and user_id
+    df = df.drop(['click', 'user_id'], 1)  # remove click and user_id
     usr_msg = 'There are ' + str(len(users['user_id'].unique())) + ' unique users after preprocessing.'
 
     # redefine users
@@ -208,11 +176,11 @@ if __name__ == '__main__':
     print(msg)
     print(df.head())
 
-    # save everything
+    # save everything
     print('saving...')
     file_path = os.getcwd()
     directory = os.path.join(os.sep, file_path, dataset)
-    directory = os.path.splitext(directory)[0]
+    directory = os.path.splitext(directory)[0] + '_k' + str(k) + '_d' + str(n_feat)
 
     if not os.path.exists(directory):
         os.makedirs(directory)
