@@ -9,7 +9,9 @@ def sherman_morrison(M_inv, x):
     Output:
         (M + x*x')^-1 computed using Sherman-Morrison formula
     """
-    return M_inv - M_inv.dot(x.dot(x.T.dot(M_inv)))/(1+x.T.dot(M_inv.dot(x)))
+    x = x.reshape((-1, 1))
+    M_inv -= M_inv.dot(x.dot(x.T.dot(M_inv))) / (1 + x.T.dot(M_inv.dot(x)))
+    return M_inv
 
 
 def get_random_state(random_state=None):
