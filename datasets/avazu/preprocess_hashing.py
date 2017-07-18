@@ -112,14 +112,15 @@ def conjunctions(X, cols=None):
         tmp = [0 for _ in range(N)]
         for pos, val in enumerate(combinations(x.values, 2)):
             val = str(val[0]) + str(val[1])
+            tmp[pos] = val
         return pd.Series(tmp, index=new_cols)
 
     X_cat = X.reindex(columns=cols)
-    X_num = X.reindex(columns=[x for x in X.columns.values
-                               if x not in cols])
-    X_cat = X_cat.apply(concatenate, axis=1)
-    X_cat.columns = new_cols
-    X = pd.merge(X_cat, X_num, left_index=True, right_index=True)
+    # X_num = X.reindex(columns=[x for x in X.columns.values
+    #                            if x not in cols])
+    X_new = X_cat.apply(concatenate, axis=1)
+    X_new.columns = new_cols
+    X = pd.merge(X_new, X, left_index=True, right_index=True)
 
     return X
 
