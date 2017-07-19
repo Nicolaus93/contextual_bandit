@@ -179,16 +179,12 @@ if __name__ == '__main__':
     print(usr_msg)
 
     # Hashing features
-    old_cols = df.columns  # keep these for later use
-    cols = ['pub_id', 'pub_domain', 'pub_category', 'banner_pos',
-            'device_model', 'device_conn_type', 'C14', 'C17',
-            'C20', 'C21']
+    cols = [i for i in df.columns if i not in ['user_id', 'click']]
     df = feature_hashing(df, N=n_feat, cols=cols)
 
     # one hot encoding and normalizing
+    # first find columns again since name has changed
     co = [c for c in df.columns if c not in ['user_id', 'click']]
-    # df[co] = df[co].apply(one_zero, axis=1)
-    # df[co] = df[co].apply(normalize, axis=1)
     df[co] = df[co].apply(one_normalize, axis=1)
     print(df.head())
 
