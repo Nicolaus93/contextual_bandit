@@ -218,7 +218,7 @@ if __name__ == '__main__':
     if not os.path.exists(directory):
         os.makedirs(directory)
     rewards.to_csv(os.path.join(directory, 'reward_list.csv'), index=False)
-    df.to_hdf(os.path.join(directory, 'processed.hdf'))
+    df.to_csv(os.path.join(directory, 'processed.csv', index=False))
     users.to_csv(os.path.join(directory, 'users.csv'), index=False)
     f = open(os.path.join(directory, 'info.txt'), 'w')
     f.write(str(k) + ' items per round\n')
