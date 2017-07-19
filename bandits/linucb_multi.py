@@ -3,7 +3,7 @@ from .utils import sherman_morrison
 
 
 class LinUcbMulti(object):
-    r"""LinUCB with Disjoint Linear Models for individual users
+    r"""LinUCB with Disjoint Linear Models for individual users.
 
     Parameters
     ----------
@@ -26,8 +26,6 @@ class LinUcbMulti(object):
         self._init_model(users)
 
     def _init_model(self, numUsers):
-        """
-        """
         self.theta = np.zeros(shape=(numUsers, self.d))
         self.b = np.zeros(shape=(numUsers, self.d))
         self.A_inv = np.zeros(shape=(numUsers, self.d, self.d))
@@ -50,6 +48,20 @@ class LinUcbMulti(object):
 
     def reward(self, x, reward, action_id, user):
         """
+        Update the model.
+
+        Parameters
+        ----------
+        user : int
+            id of the user
+
+        x : np.array
+            context of the action performed
+
+        reward : float or int
+            reward for the action taken
+
+        action_id : int
         """
         self.b[user] += reward * x
         self.A_inv[user] = sherman_morrison(self.A_inv[user], x)

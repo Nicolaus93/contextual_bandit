@@ -26,8 +26,6 @@ class LinUcbOne(object):
         self._init_model()
 
     def _init_model(self):
-        """
-        """
         self.theta = np.zeros(shape=(self.d))
         self.b = np.zeros(shape=(self.d))
         self.A_inv = np.eye(self.d)
@@ -48,8 +46,25 @@ class LinUcbOne(object):
 
     def reward(self, x, reward, action_id):
         """
+        Update the model after receiving reward.
+
+        Parameters
+        ----------
+        user : int
+            id of the user
+
+        x : np.array
+            context of the action performed
+
+        reward : float or int
+            reward for the action taken
+
+        action_id : int
+            id of the action in the current context
+
+        user : int
+            id of the user
         """
         self.b += reward * x
-        x = x.reshape((-1, 1))
         self.A_inv = sherman_morrison(self.A_inv, x)
         self.theta = self.A_inv.dot(self.b)
