@@ -11,7 +11,7 @@ and then you can run this example.
 
 import pandas as pd
 import numpy as np
-from bandits import thomp_cab, thomp_one, thomp_multi
+from bandits import thomp_cab, thomp_one, thomp_multi, linucb_one, linucb_multi
 import time
 import os
 import argparse
@@ -105,17 +105,22 @@ def policy_generation(bandit, dim, t, numUsers):
                                     R=0.02, epsilon=1/np.log(t/numUsers),
                                     random_state=3)
 
-    elif bandit == 'ThompsonOne':
-        policy = thomp_one.ThompsonOne(d=dim, delta=0.1, R=0.02, 
-                                epsilon=1/np.log(t), random_state=4)
+    elif bandit == 'ThompsonOne1':
+        policy = thomp_one.ThompsonOne(d=dim, random_state=None, v=0.1)
 
     elif bandit == 'ThompMulti1':
-        policy = thomp_multi.ThompMulti(numUsers, d=dim, delta=0.1, R=0.02,
-                                epsilon=1/np.log(t/numUsers), random_state=None, v=0.1)
+        policy = thomp_multi.ThompMulti(
+            numUsers, d=dim, random_state=None, v=0.1)
 
-    elif bandit == 'ThompMulti2':
-        policy = thomp_multi.ThompMulti(numUsers, d=dim, delta=0.1, R=0.02,
-                                epsilon=1/np.log(t/numUsers), random_state=None, v=0)
+    elif bandit == 'ThompMulti0':
+        policy = thomp_multi.ThompMulti(
+            numUsers, d=dim, random_state=None, v=0)
+
+    elif bandit == 'LinUcbOne1':
+        policy = linucb_one.LinUcbOne(d=dim, alpha=0.1)
+
+    elif bandit == 'LinUcbMulti1':
+        policy = linucb_multi.LinUcbMulti(numUsers, d=dim, alpha=0.1)
 
     elif bandit == 'random':
         policy = 0
@@ -133,7 +138,8 @@ def policy_evaluation(policy, bandit, X, Y, users):
     print(k)
     seq_error = [0] * T
 
-    if bandit in ['ThompCab', 'ThompMulti']:
+    if bandit in ['ThompCab', 'ThompMulti0', 'ThompMulti1',
+                  'LinUcbMulti1']:
         for t in range(T):
 
             if t % 10000 == 0:
@@ -155,7 +161,7 @@ def policy_evaluation(policy, bandit, X, Y, users):
                 if t > 0:
                     seq_error[t] = seq_error[t - 1]
 
-    elif bandit in ['ThompsonOne']:
+    elif bandit in ['ThompsonOne1', 'LinUcbOne1']:
         for t in range(T):
 
             if t % 10000 == 0:
@@ -200,14 +206,16 @@ def regret_calculation(seq_error):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Multi Armed Bandit algorithms on Avazu.')
+    parser = argparse.ArgumentParser(
+        description='Multi Armed Bandit algorithms on Avazu.')
     parser.add_argument(dest='dataset', metavar='dataset', type=str, nargs=1,
                         help='the dataset to use')
     args = parser.parse_args()
 
     # loading dataset
     dataset = args.dataset[0]
-    dataset_path = os.path.join(os.sep, os.getcwd(), 'datasets/avazu/' + dataset)
+    dataset_path = os.path.join(
+        os.sep, os.getcwd(), 'datasets/avazu/' + dataset)
     info_file = os.path.join(os.sep, dataset_path, 'info.txt')
     for i, line in enumerate(open(info_file, 'r')):
         if i == 0:
@@ -239,7 +247,8 @@ def main():
     cum_regret = {}
 
     # run algorithms
-    bandits = ['random', 'ThompMulti1', 'ThompMulti2']
+    bandits = ['random', 'ThompMulti0', 'ThompMulti1',
+               'LinUcbMulti1', 'ThompsonOne1', 'LinUcbOne1']
     for i, bandit in enumerate(bandits):
         policy = policy_generation(bandit, d, time, numUsers)
         seq_error = policy_evaluation(policy, bandit, X, Y, users)
