@@ -37,7 +37,6 @@ def feature_hashing(X, N=2, cols=None):
         print('feature hashing...')
         if cols is None:
             cols = [i for i in X.columns.values if i not in ['user_id', 'click']]
-            print(cols)
 
         def hash_fn(x):
             tmp = [0 for _ in range(N)]
