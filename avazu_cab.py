@@ -25,8 +25,8 @@ def timeit(method):
         result = method(*args, **kw)
         te = time.time()
 
-        print '%r (%r, %r) %2.2f sec' % \
-              (method.__name__, args, kw, te - ts)
+        print('{} ({}, {}) {2.2f} sec'.format(
+              (method.__name__, args, kw, te - ts)))
         return result
 
     return timed
@@ -260,6 +260,7 @@ def main():
     regret = {}
     cum_regret = {}
 
+    info = open(os.path.join(result_dir, 'info.txt'), 'w')
     # run algorithms
     bandits = ['random', 'ThompMulti0', 'ThompMulti1',
                'LinUcbMulti1', 'ThompsonOne1', 'LinUcbOne1']
@@ -271,6 +272,8 @@ def main():
         # save results
         fileObject = open(os.path.join(cum_regret_dir, bandit + '.plot'), 'wb')
         regretObject = open(os.path.join(regret_dir, bandit + '.plot'), 'wb')
+        if bandit is not 'random':
+            info.write(policy.verbose())
         pickle.dump(cum_regret[bandit], fileObject)
         pickle.dump(regret[bandit], regretObject)
         fileObject.close()

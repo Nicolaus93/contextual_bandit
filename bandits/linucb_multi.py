@@ -66,3 +66,10 @@ class LinUcbMulti(object):
         self.b[user] += reward * x
         self.A_inv[user] = sherman_morrison(self.A_inv[user], x)
         self.theta[user] = self.A_inv[user].dot(self.b[user])
+
+    def verbose(self):
+        """
+        Return bandit name and parameters
+        """
+        verbose = self.__class__.__name__ + ", alpha: " + str(self.alpha)
+        return verbose

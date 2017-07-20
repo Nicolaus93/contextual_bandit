@@ -68,3 +68,10 @@ class LinUcbOne(object):
         self.b += reward * x
         self.A_inv = sherman_morrison(self.A_inv, x)
         self.theta = self.A_inv.dot(self.b)
+
+    def verbose(self):
+        """
+        Return bandit name and parameters
+        """
+        verbose = self.__class__.__name__ + ", alpha: " + str(self.alpha)
+        return verbose
