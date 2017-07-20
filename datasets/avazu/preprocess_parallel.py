@@ -27,7 +27,7 @@ def par_conjunctions(data, partitions, columns):
     return data
 
 
-def par_feature_hashing(data, partitions, columns, n_feat):
+def par_feature_hashing(data, partitions, n_feat=60):
     # dd = data[['user_id', 'click']]
     # data_split = np.array_split(data[columns], partitions)
     data_split = np.array_split(data, partitions)
@@ -63,7 +63,7 @@ if __name__ == '__main__':
     df = pd.read_csv(dataset)  # Load data
     co = [c for c in df.columns if c not in ['user_id', 'click']]
     # df = par_conjunctions(df, partitions, co)
-    df = par_feature_hashing(df, partitions, co)
+    df = par_feature_hashing(df, partitions, n_feat)
     df = parallelize(df, one_normalize)
     df.to_csv('test.csv', index=False)
 
