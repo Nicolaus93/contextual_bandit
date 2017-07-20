@@ -28,15 +28,16 @@ def par_conjunctions(data, partitions, columns):
 
 
 def par_feature_hashing(data, partitions, columns, n_feat):
-    dd = data[['user_id', 'click']]
-    data_split = np.array_split(data[columns], partitions)
+    # dd = data[['user_id', 'click']]
+    # data_split = np.array_split(data[columns], partitions)
+    data_split = np.array_split(data, partitions)
     pool = Pool(partitions)
     func = partial(feature_hashing, N=n_feat)
     data = pd.concat(pool.map(func, data_split))
     pool.close()
     pool.join()
-    frames = [dd, data]
-    data = pd.concat(frames, axis=1)
+    # frames = [dd, data]
+    # data = pd.concat(frames, axis=1)
     return data
 
 
