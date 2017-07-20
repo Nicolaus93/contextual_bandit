@@ -64,6 +64,7 @@ if __name__ == '__main__':
     co = [c for c in df.columns if c not in ['user_id', 'click']]
     # df = par_conjunctions(df, partitions, co)
     df = par_feature_hashing(df, partitions, n_feat)
+    print(df.head())
     df = parallelize(df, one_normalize, partitions)
     df.to_csv('test.csv', index=False)
 
