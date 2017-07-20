@@ -36,7 +36,8 @@ def feature_hashing(X, N=2, cols=None):
         import mmh3
         print('feature hashing...')
         if cols is None:
-            cols = X.columns.values
+            cols = [i for i in X.columns.values if i not in ['user_id', 'click']]
+            print(cols)
 
         def hash_fn(x):
             tmp = [0 for _ in range(N)]
@@ -60,34 +61,11 @@ def feature_hashing(X, N=2, cols=None):
         return X
 
 
-def one_hot_hashing(x):
-    """
-    Perform one-hot-encoding after hashing trick
-    """
-    x[np.where(x)[0]] = 1
-    return x
-
-
-def one_zero(x):
-    """
-    Perform one-hot encoding with pandas built-in function
-    """
-    x[x.nonzero()[0]] = 1
-    return x
-
-
 def one_normalize(x):
     """
+    Perform one-hot encoding and normalize
     """
     x[np.where(x)[0]] = 1
-    norm = np.sqrt(x.dot(x))
-    return x / norm
-
-
-def normalize(x):
-    """
-    So that each row has norm=1
-    """
     norm = np.sqrt(x.dot(x))
     return x / norm
 
@@ -101,10 +79,8 @@ def conjunctions(X, cols=None):
         cols = X.columns.values
 
     new_cols = []
-    # vals = []
     for i in combinations(cols, 2):
         new_cols.append(i[0] + '_' + i[1])
-        # vals.append(i)
 
     N = len(new_cols)
 
@@ -116,8 +92,6 @@ def conjunctions(X, cols=None):
         return pd.Series(tmp, index=new_cols)
 
     X_cat = X.reindex(columns=cols)
-    # X_num = X.reindex(columns=[x for x in X.columns.values
-    #                            if x not in cols])
     X_new = X_cat.apply(concatenate, axis=1)
     X_new.columns = new_cols
     X = pd.merge(X_new, X, left_index=True, right_index=True)
