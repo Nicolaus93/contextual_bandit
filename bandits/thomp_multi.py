@@ -4,11 +4,24 @@ from .utils import get_random_state, sherman_morrison
 
 class ThompMulti(object):
     r"""
+    d : int
+        dimension of the context arrays
 
-    Parameters: todo
+    users : int
+        number of users
 
-    References: todo
+    v : float
+        parameter controlling the variance
 
+    random_state: {int, np.random.RandomState} (default: None)
+        If int, np.random.RandomState will used it as seed. If None, a random
+        seed will be used.
+
+    References
+    ----------
+    .. [1]  Shipra Agrawal, and Navin Goyal. "Thompson Sampling for Contextual
+            Bandits with Linear Payoffs." Advances in Neural Information
+            Processing Systems 24. 2011.
     """
 
     def __init__(self, users, d=128, random_state=None, v=0):
@@ -27,7 +40,6 @@ class ThompMulti(object):
         for i, mat in enumerate(self.B_inv):
             self.B_inv[i] = np.eye(self.d)
 
-    # @profile
     def get_action(self, context_array, user):
         """Return the action to perform
 
@@ -52,7 +64,6 @@ class ThompMulti(object):
         action_id = np.argmax(payoff)
         return action_id
 
-    # @profile
     def reward(self, x, reward, action_id, user):
         """
         Update the model after receiving reward.
@@ -78,3 +89,10 @@ class ThompMulti(object):
         B_inv = sherman_morrison(self.B_inv[user], x)
         self.B_inv[user] = B_inv
         self.mu_hat[user] = B_inv.dot(self.f[user])
+
+    def verbose(self):
+        """
+        Return bandit name and parameters
+        """
+        verbose = self.__class__.__name__ + ", v: " + str(self.v)
+        return verbose

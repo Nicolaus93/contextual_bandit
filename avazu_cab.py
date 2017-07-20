@@ -18,6 +18,20 @@ import argparse
 import pickle
 
 
+def timeit(method):
+
+    def timed(*args, **kw):
+        ts = time.time()
+        result = method(*args, **kw)
+        te = time.time()
+
+        print('{} ({}, {}) {2.2f} sec'.format(
+              (method.__name__, args, kw, te - ts)))
+        return result
+
+    return timed
+
+
 def get_data(dataset):
     file_path = os.getcwd()
     d = os.path.join(os.sep, file_path, 'datasets/avazu')
@@ -56,7 +70,6 @@ def get_data_it(dataset, K):
     return X, Y, users
 
 
-# @profile
 def policy_evaluation_it(policy, bandit, X, Y, users):
     """
     using iterators
@@ -120,7 +133,7 @@ def policy_generation(bandit, dim, t, numUsers):
         policy = linucb_one.LinUcbOne(d=dim, alpha=0.1)
 
     elif bandit == 'LinUcbMulti1':
-        policy = linucb_multi.LinUcbMulti(numUsers, d=dim, alpha=0.1)
+        policy = linucb_multi.LinUcbMulti(numUsers, d=dim, alpha=0.4)
 
     elif bandit == 'random':
         policy = 0
@@ -128,14 +141,15 @@ def policy_generation(bandit, dim, t, numUsers):
     return policy
 
 
-# @profile
+@timeit
 def policy_evaluation(policy, bandit, X, Y, users):
 
     print(bandit)
 
-    T, d, k = X.shape
-    print("k")
-    print(k)
+    T, k, d = X.shape
+    print("k: {}".format(k))
+    print("d: {}".format(d))
+
     seq_error = [0] * T
 
     if bandit in ['ThompCab', 'ThompMulti0', 'ThompMulti1',
@@ -246,6 +260,7 @@ def main():
     regret = {}
     cum_regret = {}
 
+    info = open(os.path.join(result_dir, 'info.txt'), 'w')
     # run algorithms
     bandits = ['random', 'ThompMulti0', 'ThompMulti1',
                'LinUcbMulti1', 'ThompsonOne1', 'LinUcbOne1']
@@ -255,8 +270,10 @@ def main():
         regret[bandit] = regret_calculation(seq_error)
         cum_regret[bandit] = seq_error
         # save results
-        fileObject = open(os.path.join(cum_regret_dir, bandit), 'wb')
-        regretObject = open(os.path.join(regret_dir, bandit), 'wb')
+        fileObject = open(os.path.join(cum_regret_dir, bandit + '.plot'), 'wb')
+        regretObject = open(os.path.join(regret_dir, bandit + '.plot'), 'wb')
+        if bandit is not 'random':
+            info.write(policy.verbose())
         pickle.dump(cum_regret[bandit], fileObject)
         pickle.dump(regret[bandit], regretObject)
         fileObject.close()

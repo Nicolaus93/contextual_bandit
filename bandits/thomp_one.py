@@ -39,7 +39,6 @@ class ThompsonOne(object):
         self.f = np.zeros(shape=(self.d))
         self.B_inv = np.eye(self.d)
 
-    # @profile
     def get_action(self, context_array):
         """Return the action to perform
 
@@ -59,7 +58,6 @@ class ThompsonOne(object):
         action_id = np.argmax(payoff)
         return action_id
 
-    # @profile
     def reward(self, x, reward, action_id):
         """Reward the previous action with reward.
 
@@ -74,3 +72,10 @@ class ThompsonOne(object):
         self.f += reward * x
         self.B_inv = sherman_morrison(self.B_inv, x)
         self.mu_hat = self.B_inv.dot(self.f)
+
+    def verbose(self):
+        """
+        Return bandit name and parameters
+        """
+        verbose = self.__class__.__name__ + ", v: " + str(self.v)
+        return verbose
