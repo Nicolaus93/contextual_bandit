@@ -61,8 +61,8 @@ if __name__ == '__main__':
     partitions = cores  # Define as many partitions as you want
     df = pd.read_csv(dataset)  # Load data
     co = [c for c in df.columns if c not in ['user_id', 'click']]
-    df = par_conjunctions(df, partitions, co, conjunctions)
-    df = par_feature_hashing(df, partitions, co, feature_hashing)
+    # df = par_conjunctions(df, partitions, co)
+    df = par_feature_hashing(df, partitions, co)
     df = parallelize(df, one_normalize)
     df.to_csv('test.csv', index=False)
 
