@@ -5,8 +5,7 @@ import pandas as pd
 import numpy as np
 from multiprocessing import cpu_count, Pool
 from sklearn.preprocessing import LabelEncoder
-from preprocess_hashing import feature_hashing, one_normalize, conjunctions,
-build_dataset
+from preprocess_hashing import feature_hashing, one_normalize, conjunctions, build_dataset
 
 
 def parallelize(data, func):
@@ -29,12 +28,15 @@ def par_conjunctions(data, partitions, columns):
 
 
 def par_feature_hashing(data, partitions, columns, n_feat):
-    data_split = np.array_split(data, partitions)
+    dd = data[['user_id', 'click']]
+    data_split = np.array_split(data[columns], partitions)
     pool = Pool(partitions)
-    func = partial(feature_hashing, cols=columns, N=n_feat)
+    func = partial(feature_hashing, N=n_feat)
     data = pd.concat(pool.map(func, data_split))
     pool.close()
     pool.join()
+    frames = [dd, data]
+    data = pd.concat(frames, axis=1)
     return data
 
 
@@ -59,7 +61,7 @@ if __name__ == '__main__':
     partitions = cores  # Define as many partitions as you want
     df = pd.read_csv(dataset)  # Load data
     co = [c for c in df.columns if c not in ['user_id', 'click']]
-    # df = par_conjunctions(df, partitions, co, conjunctions)
+    df = par_conjunctions(df, partitions, co, conjunctions)
     df = par_feature_hashing(df, partitions, co, feature_hashing)
     df = parallelize(df, one_normalize)
     df.to_csv('test.csv', index=False)
