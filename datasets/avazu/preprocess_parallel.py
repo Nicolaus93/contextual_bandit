@@ -8,9 +8,9 @@ from sklearn.preprocessing import LabelEncoder
 from preprocess_hashing import feature_hashing, one_normalize, conjunctions, build_dataset
 
 
-def parallelize(data, func):
+def parallelize(data, func, partitions):
     data_split = np.array_split(data, partitions)
-    pool = Pool(cores)
+    pool = Pool(partitions)
     data = pd.concat(pool.map(func, data_split))
     pool.close()
     pool.join()
@@ -64,7 +64,7 @@ if __name__ == '__main__':
     co = [c for c in df.columns if c not in ['user_id', 'click']]
     # df = par_conjunctions(df, partitions, co)
     df = par_feature_hashing(df, partitions, n_feat)
-    df = parallelize(df, one_normalize)
+    df = parallelize(df, one_normalize, partitions)
     df.to_csv('test.csv', index=False)
 
     # building dataset
