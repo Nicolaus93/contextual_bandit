@@ -12,6 +12,7 @@ import h5py
 
 def one_hot(X):
     """
+    Parallel one hot encoding
     """
     print('One-hot encoding')
     cols = [i for i in X.columns.values if i not in ['user_id', 'click']]
@@ -109,26 +110,30 @@ if __name__ == '__main__':
     parser.add_argument('-d', dest='n_feat', metavar='hashed_features',
                         type=int, nargs=1,
                         help='number of features after hashing')
+    parser.add_argument('-conj', dest='conj', action='store_true',
+                        default=False,
+                        help='whether include feature conjunctions or not')
 
     args = parser.parse_args()
     dataset = args.dataset[0]
     k = args.k[0]
     n_feat = args.n_feat[0]
+    conj = args.conj
 
     # parallelize!
     cores = cpu_count()  # Number of CPU cores on your system
     partitions = cores  # Define as many partitions as you want
     print('Reading dataset')
     df = pd.read_csv(dataset)  # Load data
-    co = [c for c in df.columns if c not in ['user_id', 'click']]
-    df = par_conjunctions(df, partitions, co)
+    if conj:
+        co = [c for c in df.columns if c not in ['user_id', 'click']]
+        df = par_conjunctions(df, partitions, co)
     df = par_feature_hashing(df, partitions, n_feat)
     print(df.head())
     df = par_one_hot(df, partitions)
     print(df.head())
 
     # building dataset
-    # df = build_dataset(df, k)
     df = build_parallel(df, k)
     rewards = pd.DataFrame(df['click'])
     users = pd.DataFrame(df['user_id'])
@@ -141,28 +146,29 @@ if __name__ == '__main__':
     le.fit(list(users['user_id']))
     users['user_id'] = le.transform(users['user_id'])
 
+    # convert to numpy array
+    t, d = df.shape
+    df = df.as_matrix().reshape((t // k, k, d)).astype(np.dtype('i4'))
+    rewards = rewards.as_matrix().reshape((t // k, k)).astype(np.dtype('i4'))
+    users = users.as_matrix().reshape((t // k, k)).astype(np.dtype('i4'))
+
     # some info
     (rows, cols) = df.shape
-    msg = 'The preprocessed dataset contains: \n' + \
-        '  {} rows \n  {} columns.\n It looks like this:\n'.format(rows, cols)
+    msg = 'The preprocessed dataset contains: \n +' \
+          '{} rounds \n  {} actions per round\n  {} columns per action'.format(t, k, d)
     print(msg)
     print(df.head())
 
-    # save everything
+    # save everything in hdf5 files
     print('saving...')
     file_path = os.getcwd()
     directory = os.path.join(os.sep, file_path, dataset)
     directory = os.path.splitext(directory)[0] + \
         '_k' + str(k) + '_d' + str(n_feat)
-
+    if conj:
+        directory += 'conj'
     if not os.path.exists(directory):
         os.makedirs(directory)
-
-    # save as numpy array in hdf5 files
-    t, d = df.shape
-    df = df.as_matrix().reshape((t // k, k, d)).astype(np.dtype('i4'))
-    rewards = rewards.as_matrix().reshape((t // k, k)).astype(np.dtype('i4'))
-    users = users.as_matrix().reshape((t // k, k)).astype(np.dtype('i4'))
 
     X = h5py.File(os.path.join(directory, 'X.hdf5'), 'w')
     X.create_dataset('X', data=df, compression='gzip', compression_opts=5)
