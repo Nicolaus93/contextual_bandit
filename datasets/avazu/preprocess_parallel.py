@@ -45,27 +45,32 @@ def build_dataset(group, k):
     except Exception as e:
         exceptions.append(e)
         # print('    not enough ones')
-        return
+        return []
     try:
         zeros = user_interactions.get_group(0)
         zeros = zeros[~zeros.duplicated(keep='first')]  # discard duplicate
         for index_and_row in ones.iterrows():
             r = pd.concat([zeros.sample(n=k - 1), index_and_row[1]
                            .to_frame().transpose()])
-            lst.append(r.iloc[np.random.permutation(len(r))])
+            lst.append(r.iloc[np.random.permutation(len(r))])  # shuffle
     except Exception as e:
         exceptions.append(e)
         # print('    not enough zeros')
-        return
-    random.shuffle(lst)
-    return pd.concat(lst)
+        return []
+    # return pd.concat(lst)
+    return lst
 
 
 def build_parallel(data, k):
     pool = Pool(partitions)
     dfGrouped = df.groupby(['user_id'])
     func = partial(build_dataset, k=k)
-    data = pd.concat(pool.map(func, [group for name, group in dfGrouped]))
+    # data = pd.concat(pool.map(func, [group for name, group in dfGrouped]))
+    lst = pool.map(func, [group for name, group in dfGrouped])
+    flat_list = [item for sublist in lst for item in sublist]
+    # shuffle data
+    random.shuffle(flat_list)
+    data = pd.concat(flat_list)
     pool.close()
     pool.join()
     return data
@@ -138,13 +143,13 @@ if __name__ == '__main__':
     rewards = pd.DataFrame(df['click'])
     users = pd.DataFrame(df['user_id'])
     df = df.drop(['click', 'user_id'], 1)  # remove click and user_id
-    usr_msg = 'There are ' + str(len(users['user_id'].unique())) + \
-        ' unique users after preprocessing.'
 
     # redefine users
     le = LabelEncoder()
     le.fit(list(users['user_id']))
     users['user_id'] = le.transform(users['user_id'])
+    usr_msg = 'There are ' + str(len(users['user_id'].unique())) + \
+        ' unique users after preprocessing.'
 
     # convert to numpy array
     t, d = df.shape
@@ -153,20 +158,19 @@ if __name__ == '__main__':
     users = users.as_matrix().reshape((t // k, k)).astype(np.dtype('i4'))
 
     # some info
-    (rows, cols) = df.shape
-    msg = 'The preprocessed dataset contains: \n +' \
-          '{} rounds \n  {} actions per round\n  {} columns per action'.format(t, k, d)
+    msg = 'The preprocessed dataset contains: \n  ' \
+          '{} rounds \n  {} actions per round\n  ' \
+          '{} columns per action'.format(t, k, d)
     print(msg)
-    print(df.head())
 
     # save everything in hdf5 files
     print('saving...')
     file_path = os.getcwd()
-    directory = os.path.join(os.sep, file_path, dataset)
+    directory = os.path.join(file_path, dataset)
     directory = os.path.splitext(directory)[0] + \
         '_k' + str(k) + '_d' + str(n_feat)
     if conj:
-        directory += 'conj'
+        directory += '_conj'
     if not os.path.exists(directory):
         os.makedirs(directory)
 
