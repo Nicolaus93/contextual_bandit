@@ -5,13 +5,15 @@ import pandas as pd
 import numpy as np
 from multiprocessing import cpu_count, Pool
 from sklearn.preprocessing import LabelEncoder
-from preprocess_hashing import feature_hashing, one_normalize, conjunctions, build_dataset
+from preprocess_hashing import feature_hashing, conjunctions
+import random
+import h5py
 
 
 def one_hot(X):
     """
     """
-    print("One-hot encoding")
+    print('One-hot encoding')
     cols = [i for i in X.columns.values if i not in ['user_id', 'click']]
 
     def one_hot_encoding(x):
@@ -29,35 +31,49 @@ def one_hot(X):
     return X
 
 
-# def applyParallel(dfGrouped, func):
-#     with Pool(cpu_count()) as p:
-#         ret_list = p.map(func, [group for name, group in dfGrouped])
-#     return pd.concat(ret_list)
+def build_dataset(group, k):
+    """
+    Todo: check for duplicates between 1 and 0s
+    """
+    print('building dataset...')
+    lst = []  # list containing every round
+    exceptions = []
+    user_interactions = group.groupby('click')  # there will be 0/1
+    try:
+        ones = user_interactions.get_group(1)
+    except Exception as e:
+        exceptions.append(e)
+        # print('    not enough ones')
+        return
+    try:
+        zeros = user_interactions.get_group(0)
+        zeros = zeros[~zeros.duplicated(keep='first')]  # discard duplicate
+        for index_and_row in ones.iterrows():
+            r = pd.concat([zeros.sample(n=k - 1), index_and_row[1]
+                           .to_frame().transpose()])
+            lst.append(r.iloc[np.random.permutation(len(r))])
+    except Exception as e:
+        exceptions.append(e)
+        # print('    not enough zeros')
+        return
+    random.shuffle(lst)
+    return pd.concat(lst)
 
-#     # applyParallel(df.groupby(df.index), tmpFunc)
 
-
-# def build_parallel(dfGrouped, func):
-#     pool = Pool(partitions)
-#     data = pd.concat(pool.map(build_dataset, [group for name, group in dfGrouped]))
-#     pool.close()
-#     pool.join()
-#     return data
+def build_parallel(data, k):
+    pool = Pool(partitions)
+    dfGrouped = df.groupby(['user_id'])
+    func = partial(build_dataset, k=k)
+    data = pd.concat(pool.map(func, [group for name, group in dfGrouped]))
+    pool.close()
+    pool.join()
+    return data
 
 
 def par_one_hot(data, partitions):
     data_split = np.array_split(data, partitions)
     pool = Pool(partitions)
     data = pd.concat(pool.map(one_hot, data_split))
-    pool.close()
-    pool.join()
-    return data
-
-
-def parallelize(data, func, partitions):
-    data_split = np.array_split(data, partitions)
-    pool = Pool(partitions)
-    data = pd.concat(pool.map(func, data_split))
     pool.close()
     pool.join()
     return data
@@ -74,16 +90,12 @@ def par_conjunctions(data, partitions, columns):
 
 
 def par_feature_hashing(data, partitions, n_feat=60):
-    # dd = data[['user_id', 'click']]
-    # data_split = np.array_split(data[columns], partitions)
     data_split = np.array_split(data, partitions)
     pool = Pool(partitions)
     func = partial(feature_hashing, N=n_feat)
     data = pd.concat(pool.map(func, data_split))
     pool.close()
     pool.join()
-    # frames = [dd, data]
-    # data = pd.concat(frames, axis=1)
     return data
 
 
@@ -112,12 +124,12 @@ if __name__ == '__main__':
     df = par_conjunctions(df, partitions, co)
     df = par_feature_hashing(df, partitions, n_feat)
     print(df.head())
-    # df = parallelize(df, one_hot_encoding, partitions)
     df = par_one_hot(df, partitions)
     print(df.head())
 
     # building dataset
-    df = build_dataset(df, k)
+    # df = build_dataset(df, k)
+    df = build_parallel(df, k)
     rewards = pd.DataFrame(df['click'])
     users = pd.DataFrame(df['user_id'])
     df = df.drop(['click', 'user_id'], 1)  # remove click and user_id
@@ -145,12 +157,25 @@ if __name__ == '__main__':
 
     if not os.path.exists(directory):
         os.makedirs(directory)
-    rewards.to_csv(os.path.join(directory, 'reward_list.csv'), index=False)
-    df.to_csv(os.path.join(directory, 'processed.csv'), index=False)
-    users.to_csv(os.path.join(directory, 'users.csv'), index=False)
+
+    # save as numpy array in hdf5 files
+    t, d = df.shape
+    df = df.as_matrix().reshape((t // k, k, d)).astype(np.dtype('i4'))
+    rewards = rewards.as_matrix().reshape((t // k, k)).astype(np.dtype('i4'))
+    users = users.as_matrix().reshape((t // k, k)).astype(np.dtype('i4'))
+
+    X = h5py.File(os.path.join(directory, 'X.hdf5'), 'w')
+    X.create_dataset('X', data=df, compression='gzip', compression_opts=5)
+    X.close()
+    Y = h5py.File(os.path.join(directory, 'Y.hdf5'), 'w')
+    Y.create_dataset('Y', data=rewards)
+    Y.close()
+    U = h5py.File(os.path.join(directory, 'users.hdf5'), 'w')
+    U.create_dataset('users', data=users)
+    U.close()
+
     f = open(os.path.join(directory, 'info.txt'), 'w')
     f.write(str(k) + ' items per round\n')
     f.write(usr_msg)
     f.write('\n')
     f.write(msg)
-    f.write(df.head().to_string())
