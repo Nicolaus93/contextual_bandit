@@ -160,7 +160,7 @@ if __name__ == '__main__':
     # some info
     msg = 'The preprocessed dataset contains: \n  ' \
           '{} rounds \n  {} actions per round\n  ' \
-          '{} columns per action'.format(t, k, d)
+          '{} columns per action'.format(t // k, k, d)
     print(msg)
 
     # save everything in hdf5 files
@@ -185,7 +185,6 @@ if __name__ == '__main__':
     U.close()
 
     f = open(os.path.join(directory, 'info.txt'), 'w')
-    f.write(str(k) + ' items per round\n')
     f.write(usr_msg)
     f.write('\n')
     f.write(msg)
