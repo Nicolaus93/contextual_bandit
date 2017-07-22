@@ -41,8 +41,7 @@ def timeit2(method):
             name = kw.get('log_name', method.__name__.upper())
             kw['log_time'][name] = int((te - ts) * 1000)
         else:
-            print '%r  %2.2f ms' % \
-                  (method.__name__, (te - ts) * 1000)
+            print('{}  {:2.2f} sec'.format(method.__name__, (te - ts)))
         return result
     return timed
 
@@ -80,7 +79,7 @@ def policy_generation(bandit, dim, t, numUsers):
         policy = linucb_one.LinUcbOne(d=dim, alpha=0.1)
 
     elif bandit == 'LinUcbMulti1':
-        policy = linucb_multi.LinUcbMulti(numUsers, d=dim, alpha=0.4)
+        policy = linucb_multi.LinUcbMulti(numUsers, d=dim, alpha=0.1)
 
     elif bandit == 'random':
         policy = 0
@@ -88,12 +87,11 @@ def policy_generation(bandit, dim, t, numUsers):
     return policy
 
 
+@timeit2
 def policy_evaluation(policy, bandit, X, Y, users):
 
     print(bandit)
     T, k, d = X.shape
-    print("k: {}".format(k))
-    print("d: {}".format(d))
 
     seq_error = [0] * T
 
@@ -181,10 +179,6 @@ def main():
             k = int(line.split()[0])
         elif i == 1:
             numUsers = int(line.split()[2])
-        # elif i == 3:
-        #     time = int(line.split()[0]) / k
-        # elif i == 4:
-        #     d = int(line.split()[0])
         print(line.rstrip())
 
     X, Y, users = get_data(dataset)
@@ -205,9 +199,15 @@ def main():
     regret = {}
     cum_regret = {}
 
-    info = open(os.path.join(result_dir, 'info.txt'), 'w')
+    info_path = os.path.join(result_dir, 'info.txt')
+    if os.path.exists(info_path):
+        mode = 'a'  # append if already exists
+    else:
+        mode = 'w'  # make a new file if not
+
+    info = open(info_path, mode)
     # run algorithms
-    bandits = ['ThompMulti0', 'ThompMulti1',
+    bandits = ['random', 'ThompMulti0', 'ThompMulti1',
                'LinUcbMulti1', 'ThompsonOne1', 'LinUcbOne1']
     for i, bandit in enumerate(bandits):
         policy = policy_generation(bandit, d, time, numUsers)
@@ -219,6 +219,7 @@ def main():
         regretObject = open(os.path.join(regret_dir, bandit + '.plot'), 'wb')
         if bandit is not 'random':
             info.write(policy.verbose())
+            info.write('\n')
         pickle.dump(cum_regret[bandit], fileObject)
         pickle.dump(regret[bandit], regretObject)
         fileObject.close()
