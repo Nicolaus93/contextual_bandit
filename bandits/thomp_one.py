@@ -73,6 +73,12 @@ class ThompsonOne(object):
         self.B_inv = sherman_morrison(self.B_inv, x)
         self.mu_hat = self.B_inv.dot(self.f)
 
+    def set_user(self, user):
+        """
+        for compatibility
+        """
+        return
+
     def verbose(self):
         """
         Return bandit name and parameters
