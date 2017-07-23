@@ -69,6 +69,12 @@ class LinUcbOne(object):
         self.A_inv = sherman_morrison(self.A_inv, x)
         self.theta = self.A_inv.dot(self.b)
 
+    def set_user(self, user):
+        """
+        for compatibility
+        """
+        return
+
     def verbose(self):
         """
         Return bandit name and parameters

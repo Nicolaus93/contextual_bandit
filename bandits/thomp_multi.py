@@ -40,7 +40,7 @@ class ThompMulti(object):
         for i, mat in enumerate(self.B_inv):
             self.B_inv[i] = np.eye(self.d)
 
-    def get_action(self, context_array, user):
+    def get_action(self, context_array):
         """Return the action to perform
 
         Parameters
@@ -48,23 +48,19 @@ class ThompMulti(object):
         context_array : numpy array
             K x d array containing contexts for every action.
 
-        user : int
-            Id of the user at the current round.
-
         Returns
         -------
         action_id : int
             Id of the action that will be recommended to the user.
         """
-        # self.mu_tilde = self.random_state.multivariate_normal(
-        #     self.mu_hat[user].flat, self.v**2 * self.B_inv[user])
+        user = self.user
         self.mu_tilde = np.random.multivariate_normal(
             self.mu_hat[user].flat, self.v**2 * self.B_inv[user])
         payoff = self.mu_tilde.dot(context_array.T)
         action_id = np.argmax(payoff)
         return action_id
 
-    def reward(self, x, reward, action_id, user):
+    def reward(self, x, reward, action_id):
         """
         Update the model after receiving reward.
 
@@ -81,14 +77,21 @@ class ThompMulti(object):
 
         action_id : int
             id of the action in the current context
-
-        user : int
-            id of the user
         """
+        user = self.user
         self.f[user] += reward * x
         B_inv = sherman_morrison(self.B_inv[user], x)
         self.B_inv[user] = B_inv
         self.mu_hat[user] = B_inv.dot(self.f[user])
+
+    def set_user(self, user):
+        """
+        Parameters
+        ----------
+        user : int
+            id of the current user
+        """
+        self.user = user
 
     def verbose(self):
         """

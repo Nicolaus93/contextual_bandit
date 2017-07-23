@@ -32,9 +32,21 @@ class LinUcbMulti(object):
         for i, mat in enumerate(self.A_inv):
             self.A_inv[i] = np.eye(self.d)
 
-    def get_action(self, context_array, user):
+    def get_action(self, context_array):
         """
+        LinUCB algorithm.
+
+        Parameters
+        ----------
+        context_array : numpy array
+            K x d array containing contexts for every action.
+
+        Returns
+        -------
+        action_id : int
+            Id of the action that will be recommended to the user.
         """
+        user = self.user
         estimated_reward = self.theta[user].dot(context_array.T)
         uncertainty = np.zeros(shape=context_array.shape[0])
         for i, action in enumerate(context_array):
@@ -46,15 +58,12 @@ class LinUcbMulti(object):
         action_id = np.argmax(payoff)
         return action_id
 
-    def reward(self, x, reward, action_id, user):
+    def reward(self, x, reward, action_id):
         """
         Update the model.
 
         Parameters
         ----------
-        user : int
-            id of the user
-
         x : np.array
             context of the action performed
 
@@ -63,9 +72,19 @@ class LinUcbMulti(object):
 
         action_id : int
         """
+        user = self.user
         self.b[user] += reward * x
         self.A_inv[user] = sherman_morrison(self.A_inv[user], x)
         self.theta[user] = self.A_inv[user].dot(self.b[user])
+
+    def set_user(self, user):
+        """
+        Parameters
+        ----------
+        user : int
+            id of the current user
+        """
+        self.user = user
 
     def verbose(self):
         """
