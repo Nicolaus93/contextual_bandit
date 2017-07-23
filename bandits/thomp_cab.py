@@ -44,7 +44,7 @@ class ThompCAB(object):
     """
 
     def __init__(self, users, d=128, gamma=0.5,
-                 delta=0.5, R=0.01, epsilon=0.5, random_state=None):
+                 v=0.1, random_state=None):
 
         self.numUsers = users
         self.d = d
@@ -55,9 +55,7 @@ class ThompCAB(object):
         self.updated = set()
         self.neigh_size = []
         # Thompson sampling parameters
-        self.v = R * np.sqrt(
-            24 / epsilon * self.d * np.log(1 / delta))
-        self.v = 0.01
+        self.v = v
         self._init_model()
 
     def _init_model(self):
@@ -170,7 +168,7 @@ class ThompCAB(object):
                         self.CB[user] + self.CB)
         self.N[i, j] = 1
 
-    def get_action(self, context_array, user):
+    def get_action(self, context_array):
         """Return the action to perform
 
         Parameters
@@ -187,6 +185,7 @@ class ThompCAB(object):
             Id of the action that will be recommended to the user.
             Currently it returns the FIRST best action!
         """
+        user = self.user
         self.t += 1
         # update parameters in order to sample user's mu tilde
         self.used[user] += 1
@@ -198,9 +197,11 @@ class ThompCAB(object):
         action_id = np.argmax(payoff)
         return action_id
 
-    def reward(self, x, reward, action_id, user):
+    def reward(self, x, reward, action_id):
         """
+        Update the model
         """
+        user = self.user
         self.updated = set()
         self._update(user, x, reward)
         self.neigh_size.append(sum(self.N[:, action_id]))
@@ -231,3 +232,19 @@ class ThompCAB(object):
         B_inv = sherman_morrison(self.B_inv[user], x)
         self.B_inv[user] = B_inv
         self.mu_hat[user] = B_inv.dot(self.f[user])
+
+    def set_user(self, user):
+        """
+        Parameters
+        ----------
+        user : int
+            id of the current user
+        """
+        self.user = user
+
+    def verbose(self):
+        """
+        Return bandit name and parameters
+        """
+        verbose = self.__class__.__name__ + ", v: " + str(self.v)
+        return verbose
