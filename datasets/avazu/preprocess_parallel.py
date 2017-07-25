@@ -42,6 +42,7 @@ def build_dataset(group, k):
     user_interactions = group.groupby('click')  # there will be 0/1
     try:
         ones = user_interactions.get_group(1)
+        ones = ones[~ones.duplicated(keep='first')]
     except Exception as e:
         exceptions.append(e)
         # print('    not enough ones')
@@ -57,7 +58,6 @@ def build_dataset(group, k):
         exceptions.append(e)
         # print('    not enough zeros')
         return []
-    # return pd.concat(lst)
     return lst
 
 
@@ -65,7 +65,6 @@ def build_parallel(data, k):
     pool = Pool(partitions)
     dfGrouped = df.groupby(['user_id'])
     func = partial(build_dataset, k=k)
-    # data = pd.concat(pool.map(func, [group for name, group in dfGrouped]))
     lst = pool.map(func, [group for name, group in dfGrouped])
     flat_list = [item for sublist in lst for item in sublist]
     # shuffle data
@@ -148,7 +147,7 @@ if __name__ == '__main__':
     le = LabelEncoder()
     le.fit(list(users['user_id']))
     users['user_id'] = le.transform(users['user_id'])
-    usr_msg = 'There are ' + str(len(users['user_id'].unique())) + \
+    usr_msg = str(len(users['user_id'].unique())) + \
         ' unique users after preprocessing.'
 
     # convert to numpy array
@@ -174,15 +173,22 @@ if __name__ == '__main__':
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-    X = h5py.File(os.path.join(directory, 'X.hdf5'), 'w')
-    X.create_dataset('X', data=df, compression='gzip', compression_opts=5)
-    X.close()
-    Y = h5py.File(os.path.join(directory, 'Y.hdf5'), 'w')
-    Y.create_dataset('Y', data=rewards)
-    Y.close()
-    U = h5py.File(os.path.join(directory, 'users.hdf5'), 'w')
-    U.create_dataset('users', data=users)
-    U.close()
+    data = h5py.File(os.path.join(directory, 'dataset.hdf5'), 'w')
+    data.create_dataset('X', data=df, compression='gzip', compression_opts=5)
+    data.create_dataset('y', data=rewards)
+    data.create_dataset('users', data=users)
+    data.close()
+
+
+    # X = h5py.File(os.path.join(directory, 'X.hdf5'), 'w')
+    # X.create_dataset('X', data=df, compression='gzip', compression_opts=5)
+    # X.close()
+    # Y = h5py.File(os.path.join(directory, 'Y.hdf5'), 'w')
+    # Y.create_dataset('Y', data=rewards)
+    # Y.close()
+    # U = h5py.File(os.path.join(directory, 'users.hdf5'), 'w')
+    # U.create_dataset('users', data=users)
+    # U.close()
 
     f = open(os.path.join(directory, 'info.txt'), 'w')
     f.write(usr_msg)
