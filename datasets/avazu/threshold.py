@@ -53,7 +53,7 @@ def select_seq(df, k):
         except Exception:
             continue
         ratio = len(ones) / (len(zeros) + len(ones))
-        if ratio > k:
+        if ratio < k:
             lst.append(pd.concat([ones, zeros]))
     return pd.concat(lst)
 
@@ -75,7 +75,7 @@ if __name__ == '__main__':
     # partitions = cpu_count()
     partitions = 24
     print('reading dataset...')
-    df = pd.read_csv('preprocessed.csv')
+    df = pd.read_csv('preprocessed_k20.csv')
 
     print('selecting users...')
     # df = select(df, i, partitions)
