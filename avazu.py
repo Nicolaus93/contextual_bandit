@@ -11,28 +11,17 @@ and then you can run this example.
 
 import numpy as np
 import time
-import os
 import argparse
 import pickle
 import h5py
+from os.path import join, exists
+from os import makedirs, getcwd
+from sklearn.preprocessing import normalize
+from sklearn.model_selection import train_test_split
 from bandits import thomp_cab, thomp_one, thomp_multi, linucb_one, linucb_multi
 
 
 def timeit(method):
-
-    def timed(*args, **kw):
-        ts = time.time()
-        result = method(*args, **kw)
-        te = time.time()
-
-        print('{} ({}, {}) {2.2f} sec'.format(
-              (method.__name__, args, kw, te - ts)))
-        return result
-
-    return timed
-
-
-def timeit2(method):
     def timed(*args, **kw):
         ts = time.time()
         result = method(*args, **kw)
@@ -47,39 +36,40 @@ def timeit2(method):
 
 
 def get_data(dataset):
-    file_path = os.getcwd()
-    d = os.path.join(os.sep, file_path, 'datasets/avazu')
-    directory = os.path.join(os.sep, d, dataset)
-    contexts = np.array(h5py.File(os.path.join(directory, 'X.hdf5'), 'r')['X'])
-    reward_list = np.array(h5py.File(os.path.join(directory, 'Y.hdf5'), 'r')['Y'])
-    users = h5py.File(os.path.join(directory, 'users.hdf5'), 'r')['users']
-    users = np.array(users[:, 0])  # fix this
-    return contexts, reward_list, users
+    file_path = getcwd()
+    d = join(file_path, 'datasets/avazu')
+    directory = join(d, dataset)
+    data = h5py.File(join(directory, 'dataset.hdf5'), 'r')
+    contexts = np.array(data['X'])
+    rewards = np.array(data['y'])
+    users = np.array(data['users'])
+    users = users[:, 0]
+    return contexts, rewards, users
 
 
 def policy_generation(bandit, dim, t, numUsers):
 
     if bandit == 'ThompCab':
-        policy = thomp_cab.ThompCAB(numUsers, d=dim, gamma=0.1, delta=0.1,
-                                    R=0.02, epsilon=1/np.log(t/numUsers),
-                                    random_state=3)
+        policy = thomp_cab.ThompCAB(numUsers, d=dim, gamma=0.1, v=0.1)
 
-    elif bandit == 'ThompsonOne1':
-        policy = thomp_one.ThompsonOne(d=dim, random_state=None, v=0.1)
+    elif bandit == 'ThompsonOne':
+        policy = thomp_one.ThompsonOne(d=dim, random_state=None, v=0.01)
 
-    elif bandit == 'ThompMulti1':
+    elif bandit == 'ThompMulti':
         policy = thomp_multi.ThompMulti(
-            numUsers, d=dim, random_state=None, v=0.1)
+            numUsers, d=dim, v=0.1)
 
-    elif bandit == 'ThompMulti0':
-        policy = thomp_multi.ThompMulti(
-            numUsers, d=dim, random_state=None, v=0)
+    elif bandit == 'LinUcbOne':
+        policy = linucb_one.LinUcbOne(d=dim, alpha=0.01)
 
-    elif bandit == 'LinUcbOne1':
-        policy = linucb_one.LinUcbOne(d=dim, alpha=0.1)
-
-    elif bandit == 'LinUcbMulti1':
+    elif bandit == 'LinUcbMulti':
         policy = linucb_multi.LinUcbMulti(numUsers, d=dim, alpha=0.1)
+
+    elif bandit == 'ExploitMulti':
+        policy = linucb_multi.LinUcbMulti(numUsers, d=dim, alpha=0)
+
+    elif bandit == 'ExploitSingle':
+        policy = linucb_one.LinUcbOne(d=dim, alpha=0)
 
     elif bandit == 'random':
         policy = 0
@@ -87,71 +77,80 @@ def policy_generation(bandit, dim, t, numUsers):
     return policy
 
 
-@timeit2
+def explore_parameters(bandit, dim, t, numUsers):
+    """
+    A function used to tune various parameters
+    in the algorithms.
+    """
+
+    test = [0, 0.00001, 0.0001, 0.001, 0.01, 0.1]
+    policy = {}
+
+    if bandit == 'ThompCab':
+        for i in test:
+            policy[bandit + str(i)] = thomp_cab.ThompCAB(
+                numUsers, d=dim, gamma=0.1, v=i)
+
+    elif bandit == 'ThompsonOne':
+        for i in test:
+            policy[bandit + str(i)] = thomp_one.ThompsonOne(d=dim, v=i)
+
+    elif bandit == 'ThompMulti':
+        for i in test:
+            policy[bandit + str(i)] = thomp_multi.ThompMulti(
+                numUsers, d=dim, v=i)
+
+    elif bandit == 'LinUcbOne':
+        for i in test:
+            policy[bandit + str(i)] = linucb_one.LinUcbOne(d=dim, alpha=i)
+
+    elif bandit == 'LinUcbMulti':
+        for i in test:
+            policy[bandit + str(i)] = linucb_multi.LinUcbMulti(
+                numUsers, d=dim, alpha=i)
+
+    return policy
+
+
+@timeit
 def policy_evaluation(policy, bandit, X, Y, users):
 
     print(bandit)
     T, k, d = X.shape
-
     seq_error = [0] * T
 
-    if bandit in ['ThompCab', 'ThompMulti0', 'ThompMulti1',
-                  'LinUcbMulti1']:
-        for t in range(T):
+    # X_train, X_test, y_train, y_test, user_train, user_test = train_test_split(
+    #     X, Y, users, test_size=0.8, random_state=42)
 
+    # T, k, d = X_train.shape
+    # seq_error = [0] * T
+
+    for t in range(T):
+        if bandit is not 'random':
             if t % 10000 == 0:
                 print(t)
 
-            user = users[t]
-            full_context = X[t]
-            action_id = policy.get_action(full_context, user)
-            reward = Y[t, action_id]
-
-            # update
-            policy.reward(full_context[action_id], reward, action_id, user)
-            if not reward:
-                if t == 0:
-                    seq_error[t] = 1
-                else:
-                    seq_error[t] = seq_error[t - 1] + 1
-            else:
-                if t > 0:
-                    seq_error[t] = seq_error[t - 1]
-
-    elif bandit in ['ThompsonOne1', 'LinUcbOne1']:
-        for t in range(T):
-
-            if t % 10000 == 0:
-                print(t)
-
-            user = users[t]
-            full_context = X[t]
+            policy.set_user(users[t])
+            full_context = normalize(X[t])
+            # policy.set_user(user_train[t])
+            # full_context = normalize(X_train[t])
             action_id = policy.get_action(full_context)
             reward = Y[t, action_id]
+            # reward = y_train[t, action_id]
+            policy.reward(full_context[action_id], reward, action_id)
 
-            if not reward:
-                policy.reward(full_context[action_id], reward, action_id)
-                if t == 0:
-                    seq_error[t] = 1
-                else:
-                    seq_error[t] = seq_error[t - 1] + 1
-            else:
-                policy.reward(full_context[action_id], reward, action_id)
-                if t > 0:
-                    seq_error[t] = seq_error[t - 1]
-
-    elif bandit == 'random':
-        for t in range(T):
+        else:
             action_id = np.random.randint(0, k)
             reward = Y[t, action_id]
-            if not reward:
-                if t == 0:
-                    seq_error[t] = 1.0
-                else:
-                    seq_error[t] = seq_error[t - 1] + 1.0
+
+        if not reward:
+            if t == 0:
+                seq_error[t] = 1.0
             else:
-                if t > 0:
-                    seq_error[t] = seq_error[t - 1]
+                seq_error[t] = seq_error[t - 1] + 1.0
+        else:
+            if t > 0:
+                seq_error[t] = seq_error[t - 1]
 
     return seq_error
 
@@ -167,56 +166,60 @@ def main():
         description='Multi Armed Bandit algorithms on Avazu.')
     parser.add_argument(dest='dataset', metavar='dataset', type=str, nargs=1,
                         help='the dataset to use')
+    parser.add_argument(dest='name', metavar='name', type=str, nargs=1,
+                        help='name of the folder where results are saved')
     args = parser.parse_args()
 
     # loading dataset
     dataset = args.dataset[0]
-    dataset_path = os.path.join(
-        os.sep, os.getcwd(), 'datasets/avazu/' + dataset)
-    info_file = os.path.join(os.sep, dataset_path, 'info.txt')
+    name = args.name[0]
+    dataset_path = join(getcwd(), 'datasets/avazu/' + dataset)
+    info_file = join(dataset_path, 'info.txt')
     for i, line in enumerate(open(info_file, 'r')):
         if i == 0:
-            k = int(line.split()[0])
-        elif i == 1:
-            numUsers = int(line.split()[2])
+            numUsers = int(line.split()[0])
         print(line.rstrip())
 
     X, Y, users = get_data(dataset)
     time, k, d = X.shape
 
-    # create results directories
-    result_dir = os.path.join(os.sep, dataset_path, 'results')
-    if not os.path.exists(result_dir):
-        os.makedirs(result_dir)
-    regret_dir = os.path.join(result_dir, 'regret')
-    if not os.path.exists(regret_dir):
-        os.makedirs(regret_dir)
-    cum_regret_dir = os.path.join(result_dir, 'cum_regret')
-    if not os.path.exists(cum_regret_dir):
-        os.makedirs(cum_regret_dir)
+    # create result directory
+    result_dir = join(dataset_path, 'results')
+    if not exists(result_dir):
+        makedirs(result_dir)
+
+    # create folder for the current test
+    test_dir = join(result_dir, name)
+    if not exists(test_dir):
+        makedirs(join(result_dir, name))
+
+    # create regret directory
+    regret_dir = join(test_dir, 'regret')
+    if not exists(regret_dir):
+        makedirs(regret_dir)
+    # create cum_regret directory
+    cum_regret_dir = join(test_dir, 'cum_regret')
+    if not exists(cum_regret_dir):
+        makedirs(cum_regret_dir)
 
     # conduct regret analyses
     regret = {}
     cum_regret = {}
 
-    info_path = os.path.join(result_dir, 'info.txt')
-    if os.path.exists(info_path):
-        mode = 'a'  # append if already exists
-    else:
-        mode = 'w'  # make a new file if not
+    info_path = join(test_dir, 'info.txt')
+    info = open(info_path, 'w')
 
-    info = open(info_path, mode)
     # run algorithms
-    bandits = ['random', 'ThompMulti0', 'ThompMulti1',
-               'LinUcbMulti1', 'ThompsonOne1', 'LinUcbOne1']
+    bandits = ['random', 'ThompMulti', 'ThompsonOne', 'ExploitMulti',
+               'LinUcbMulti', 'LinUcbOne', 'ExploitSingle']
     for i, bandit in enumerate(bandits):
         policy = policy_generation(bandit, d, time, numUsers)
         seq_error = policy_evaluation(policy, bandit, X, Y, users)
         regret[bandit] = regret_calculation(seq_error)
         cum_regret[bandit] = seq_error
         # save results
-        fileObject = open(os.path.join(cum_regret_dir, bandit + '.plot'), 'wb')
-        regretObject = open(os.path.join(regret_dir, bandit + '.plot'), 'wb')
+        fileObject = open(join(cum_regret_dir, bandit + '.plot'), 'wb')
+        regretObject = open(join(regret_dir, bandit + '.plot'), 'wb')
         if bandit is not 'random':
             info.write(policy.verbose())
             info.write('\n')
@@ -224,6 +227,40 @@ def main():
         pickle.dump(regret[bandit], regretObject)
         fileObject.close()
         regretObject.close()
+
+    # # conduct regret analyses
+    # regret = {}
+    # cum_regret = {}
+    # bandits = ['ThompMulti', 'ThompsonOne',
+    #            'LinUcbMulti', 'LinUcbOne', 'ThompCab']
+    # for b in bandits:
+    #     policies = explore_parameters(b, d, time, numUsers)
+    #     res_path = join(test_dir, b)
+    #     makedirs(res_path)
+    #     # create regret directory
+    #     regret_dir = join(res_path, 'regret')
+    #     makedirs(regret_dir)
+    #     # create cum_regret directory
+    #     cum_regret_dir = join(res_path, 'cum_regret')
+    #     makedirs(cum_regret_dir)
+    #     # create info file
+    #     info_path = join(res_path, 'info.txt')
+    #     info = open(info_path, 'w')
+    #     # run tests
+    #     for bandit in policies:
+    #         seq_error = policy_evaluation(policies[bandit], bandit, X, Y, users)
+    #         regret[bandit] = regret_calculation(seq_error)
+    #         cum_regret[bandit] = seq_error
+    #         # save results
+    #         fileObject = open(join(cum_regret_dir, bandit + '.plot'), 'wb')
+    #         regretObject = open(join(regret_dir, bandit + '.plot'), 'wb')
+    #         if bandit is not 'random':
+    #             info.write(policies[bandit].verbose())
+    #             info.write('\n')
+    #         pickle.dump(cum_regret[bandit], fileObject)
+    #         pickle.dump(regret[bandit], regretObject)
+    #         fileObject.close()
+    #         regretObject.close()
 
 
 if __name__ == '__main__':
