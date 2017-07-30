@@ -9,8 +9,7 @@ def select(data, k, partitions):
     dfGrouped = data.groupby(['user_id'])
     func = partial(select_users, k=k)
     lst = pool.map(func, [group for name, group in dfGrouped])
-    flat_list = [item for sublist in lst for item in sublist]
-    data = pd.concat(flat_list)
+    data = pd.concat(lst)
     pool.close()
     pool.join()
     return data
@@ -18,26 +17,45 @@ def select(data, k, partitions):
 
 def select_users(group, k):
     """
+    For parallel usage
     """
-    lst = []  # list containing every round
-    exceptions = []
     user_interactions = group.groupby('click')  # there will be 0/1
     try:
         ones = user_interactions.get_group(1)
-        # ones = ones[~ones.duplicated(keep='first')]
-    except Exception as e:
-        exceptions.append(e)
-        return []
+    except Exception:
+        return pd.DataFrame()
     try:
         zeros = user_interactions.get_group(0)
-        # zeros = zeros[~zeros.duplicated(keep='first')]  # discard duplicate
-    except Exception as e:
-        exceptions.append(e)
-        return []
-    ratio = len(ones) / len(zeros)
+    except Exception:
+        return pd.DataFrame()
+    ratio = len(ones) / (len(zeros) + len(ones))
     if ratio > k:
-        lst.append(user_interactions)
-    return lst
+        return pd.concat([ones, zeros])
+    return pd.DataFrame()
+
+
+def select_seq(df, k):
+    """
+    Sequential
+    """
+    lst = []
+    grouped = df.groupby(['user_id'])   # group by users
+    i = 0
+    for name, group in grouped:
+        i += 1
+        user_interactions = group.groupby('click')  # there will be 0/1
+        try:
+            ones = user_interactions.get_group(1)
+        except Exception:
+            continue
+        try:
+            zeros = user_interactions.get_group(0)
+        except Exception:
+            continue
+        ratio = len(ones) / (len(zeros) + len(ones))
+        if ratio > k:
+            lst.append(pd.concat([ones, zeros]))
+    return pd.concat(lst)
 
 
 if __name__ == '__main__':
@@ -54,16 +72,18 @@ if __name__ == '__main__':
     # inf = args.inf[0]
     i = args.threshold[0]
 
-    partitions = cpu_count()
+    # partitions = cpu_count()
+    partitions = 24
     print('reading dataset...')
-    df = pd.read_csv('train_data.csv')
+    df = pd.read_csv('preprocessed.csv')
 
     print('selecting users...')
-    df = select(df, i, partitions)
+    # df = select(df, i, partitions)
+    df = select_seq(df, i)
 
     print(df.shape)
     us = len(df['user_id'].unique())
     print('There are {} users'.format(len(df['user_id'].unique())))
     print('saving dataset...')
-    name = 'filtered_' + str(i) + '.csv'
+    name = 'preprocessed_' + str(i) + '.csv'
     df.to_csv(name, index=False)
