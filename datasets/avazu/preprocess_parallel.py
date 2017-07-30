@@ -120,9 +120,7 @@ def build_parallel(data, k, partitions):
     dfGrouped = data.groupby(['user_id'])
     func = partial(build_nodupli, k=k)
     lst = pool.map(func, [group for name, group in dfGrouped])
-    print(len(lst))
     flat_list = [item for sublist in lst for item in sublist]
-    print(len(flat_list))
     # shuffle data
     random.shuffle(flat_list)
     data = pd.concat(flat_list)
@@ -188,9 +186,6 @@ if __name__ == '__main__':
     partitions = cores  # Define as many partitions as you want
     print('Reading dataset')
     df = pd.read_csv(dataset)  # Load data
-
-    n = df.user_id.value_counts().index[:1000]
-    df = df[df['user_id'].isin(n)]
     df.drop('hour', axis=1, inplace=True)
 
     try:
