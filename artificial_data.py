@@ -2,9 +2,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn; seaborn.set()
 import time
-from datasets.artificial_data.generate_data import artificial_data_generator
-from bandits import thomp_cab, thomp_multi, thomp_one, linucb_one, linucb_multi
+from bandits import thomp_cab, thomp_multi, thomp_one, linucb_one, linucb_multi, cab
 from sklearn.preprocessing import normalize
+import argparse
+import os
+import h5py
+import scipy.stats as st
 
 
 def timeit(method):
@@ -30,22 +33,24 @@ def policy_generation(bandit, dim, t, numUsers):
         policy = linucb_one.LinUcbOne(d=dim, alpha=0.2)
 
     if bandit == 'ThompCAB':
-        policy = thomp_cab.ThompCAB(numUsers, d=dim, gamma=0.1,
-                                    v=0.1)
+        policy = thomp_cab.ThompCAB(numUsers, d=dim, gamma=0.1, v=0.5)
 
     elif bandit == 'ThompMulti':
         policy = thomp_multi.ThompMulti(
-            numUsers, d=dim, random_state=None, v=0.1)
+            numUsers, d=dim, random_state=None, v=0.5)
 
     elif bandit == 'ExploitMulti':
         policy = thomp_multi.ThompMulti(
             numUsers, d=dim, random_state=None, v=0)
 
     elif bandit == 'ThompsonOne':
-        policy = thomp_one.ThompsonOne(d=dim, random_state=None, v=0.1)
+        policy = thomp_one.ThompsonOne(d=dim, random_state=None, v=0.5)
 
     elif bandit == 'LinUcbMulti':
-        policy = linucb_multi.LinUcbMulti(numUsers, d=dim, alpha=0.8)
+        policy = linucb_multi.LinUcbMulti(numUsers, d=dim, alpha=1.5)
+
+    elif bandit == 'CAB':
+        policy = cab.CAB(numUsers, d=dim, gamma=0.2, alpha=0.5)
 
     elif bandit == 'random':
         policy = 0
@@ -89,70 +94,132 @@ def regret_calculation(seq_error):
     return regret
 
 
+def get_data(dataset):
+    file_path = os.getcwd()
+    d = os.path.join(file_path, 'datasets/avazu')
+    directory = os.path.join(d, dataset)
+    data = h5py.File(os.path.join(directory, 'dataset.hdf5'), 'r')
+    contexts = np.array(data['X'])
+    rewards = np.array(data['y'])
+    users = np.array(data['users'])
+    model = np.array(data['model'])
+    us_feat = np.array(data['us_feat'])
+    return contexts, rewards, users, model, us_feat
+
+
+def plot_regret(fig, x, y, name, col, ylabel):
+    plt.figure(fig, figsize=(12, 8))
+    plt.plot(x, y, c=col,
+             ls='-', label=name, linewidth=1.5)
+    plt.xlabel('time')
+    plt.ylabel(ylabel)
+    return plt
+
+
 def main():
-    # model = np.array([[5, 1, 4, 1, 1, 1, 4, 1, 2, 4],
-    #                   [5, 1, 1, 4, 2, 1, 5, 1, 5, 1],
-    #                   [1, 5, 1, 5, 1, 4, 1, 4, 2, 1],
-    #                   [1, 5, 4, 2, 5, 1, 1, 5, 1, 1],
-    #                   [2, 1, 1, 1, 5, 4, 1, 1, 4, 5]])
+    parser = argparse.ArgumentParser(
+        description='Multi Armed Bandit algorithms on Avazu.')
+    parser.add_argument(dest='dataset', metavar='dataset', type=str, nargs=1,
+                        help='the dataset to use')
+    args = parser.parse_args()
 
-    # model = 1 * (model - 2)
+    # loading dataset
+    dataset = args.dataset[0]
+    dataset_path = os.path.join(
+        os.getcwd(), 'datasets/artificial_data/' + dataset)
 
-    # X, Y, users, model, users_feat = artificial_data_generator(
-    #     T=10000, K=20, numUsers=40, model=model, random_state=42)
-
-    classes = 5
-    us = 200
-    X, Y, users, model, users_feat = artificial_data_generator(
-        T=10000, d=30, K=20, classes=classes, numUsers=us)
-
+    X, Y, users, model, us_feat = get_data(dataset_path)
     T, d, k = X.shape
     classes = len(model)
     numUsers = len(np.unique(users))
     print('number of users: {}'.format(numUsers))
+    print('rounds per user: {}'.format(T // numUsers))
+    print('arms per round: {}'.format(k))
+    print('dimension of contexts: {}'.format(d))
+    print('\n')
 
     cum_regret = {}
     regret = {}
-    col = ['b', 'g', 'r', 'y', 'm', 'k']
+    col = seaborn.color_palette()
 
     # run algorithms
-    bandits = ['ThompMulti', 'random', 'ThompCAB',
-               'ThompsonOne', 'LinUcbMulti', 'ExploitMulti']
+    bandits = ['ThompsonOne', 'ThompMulti', 'ThompCAB', 'CAB']
     for i, bandit in enumerate(bandits):
         policy = policy_generation(bandit, d, T, numUsers)
-        seq_error = policy_evaluation(policy, bandit, X, Y, users)
-        cum_regret[bandit] = seq_error
-        regret[bandit] = regret_calculation(seq_error)
-        t = len(cum_regret[bandit])
 
-        plt.figure(1, figsize=(12, 8))
-        plt.plot(range(t), cum_regret[bandit], c=col[i],
-                 ls='-', label=str(bandit), linewidth=1.5)
-        p1 = plt.legend(loc='upper left')
-        plt.xlabel('time')
-        plt.ylabel('cumulative regret')
+        if bandit in ['ThompCAB', 'ThompMulti', 'ThompsonOne']:
 
-        plt.figure(2, figsize=(10, 7))
-        plt.plot(range(t), regret[bandit], c=col[i],
-                 ls='-', label=str(bandit), linewidth=1.3)
-        plt.ylim([0, 1.5])
-        p2 = plt.legend(loc='upper right')
-        plt.xlabel('time')
-        plt.ylabel('regret')
-        plt.title("Regret plot with respect to T")
+            # average regret in randomized algorithms
+            rounds = 5
+            cum_regret = np.zeros((rounds, T))
+            regret = np.zeros((rounds, T))
+            for j in range(rounds):
+                cum_regret[j] = policy_evaluation(policy, bandit, X, Y, users)
+                regret[j] = regret_calculation(cum_regret[j])
+            avg_cum_regret = np.mean(cum_regret, axis=0)
+            avg_regret = np.mean(regret, axis=0)
 
-        if bandit == 'ThompCAB':
-            plt.figure(3)
-            plt.plot(range(t), policy.neigh_size)
-            plt.title('Neighborood size')
+            # plot regret
+            plot_regret(1, range(T), avg_cum_regret, str(bandit),
+                        col[i], 'cumulative regret')
+            plot_regret(2, range(T), avg_regret, str(bandit),
+                        col[i], 'regret')
 
-            plt.figure(4)
-            plt.plot(range(t), policy.updated_size)
-            plt.title('Updated users with respect to T')
+            # plot confidence bounds
+            ii, jj = st.t.interval(
+                0.99, len(avg_regret) - 1,
+                loc=np.mean(avg_regret), scale=st.sem(regret))
+            # ii, jj = st.norm.interval(0.95, loc=mean, scale=st.sem(temp))
 
-    p1.draggable(True)
-    p2.draggable(True)
+            plt.fill(np.concatenate([range(T), range(T)[::-1]]),
+                     np.concatenate([ii, (jj)[::-1]]),
+                     alpha=.5, fc=col[i], ec='None', label='95% confidence interval')
+        else:
+            cum_regret = policy_evaluation(policy, bandit, X, Y, users)
+            regret = regret_calculation(cum_regret)
+
+            plot_regret(1, range(T), cum_regret, str(bandit),
+                        col[i], 'cumulative regret')
+            plot_regret(2, range(T), regret, str(bandit),
+                        col[i], 'regret')
+
+        j = 4
+        if bandit in ['CAB']:
+            color = col[j]
+
+            plt.figure(j)
+            plt.plot(range(T), policy.neigh_size, c=color)
+            plt.title(str(bandit) + ': Neighborood size')
+
+            plt.figure(j + 1)
+            plt.plot(range(T), policy.updated_size, c=color)
+            plt.title(str(bandit) + ': Updated users with respect to T')
+            j += 1
+
+    # plot model
+    if len(model) < 6:
+        plt.figure(3)
+        i, j = model.shape
+        first = int(str(i) + '11')  # plot x11
+        ax1 = plt.subplot(first)
+        plt.setp(ax1.get_xticklabels(), visible=False)
+        x = range(d)
+        plt.bar(x, height=model[0])
+        for k in range(2, classes + 1):
+            num = int(str(i) + '1' + str(k))
+            plt.subplot(num, sharex=ax1)
+            plt.bar(x, height=model[k - 1], color=col[k - 1])
+            ax2 = plt.subplot(num, sharex=ax1)
+            plt.setp(ax2.get_xticklabels(), visible=False)
+
+    plt.figure(1)
+    plt.legend(loc='upper left')
+    plt.figure(2)
+    plt.legend(loc='upper right')
+    plt.ylim([0, 1])
     plt.show()
+
+    # print(model)
 
 
 if __name__ == '__main__':
