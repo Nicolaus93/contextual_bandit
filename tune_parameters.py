@@ -18,7 +18,7 @@ from os.path import join, exists
 from os import makedirs, getcwd
 from sklearn.preprocessing import normalize
 from sklearn.model_selection import train_test_split
-from bandits import thomp_cab, thomp_one, thomp_multi, linucb_one, linucb_multi
+from bandits import thomp_cab, thomp_one, thomp_multi, linucb_one, linucb_multi, cab
 
 
 def timeit(method):
@@ -47,34 +47,37 @@ def get_data(dataset):
     return contexts, rewards, users
 
 
-def policy_generation(bandit, dim, t, numUsers):
+# def policy_generation(bandit, dim, t, numUsers):
 
-    if bandit == 'ThompCab':
-        policy = thomp_cab.ThompCAB(numUsers, d=dim, gamma=0.1, v=0.1)
+#     if bandit == 'ThompCab':
+#         policy = thomp_cab.ThompCAB(numUsers, d=dim, gamma=0.1, v=0.1)
 
-    elif bandit == 'ThompsonOne':
-        policy = thomp_one.ThompsonOne(d=dim, random_state=None, v=0.01)
+#     elif bandit == 'ThompsonOne':
+#         policy = thomp_one.ThompsonOne(d=dim, random_state=None, v=0.01)
 
-    elif bandit == 'ThompMulti':
-        policy = thomp_multi.ThompMulti(
-            numUsers, d=dim, v=0.1)
+#     elif bandit == 'ThompMulti':
+#         policy = thomp_multi.ThompMulti(
+#             numUsers, d=dim, v=0.1)
 
-    elif bandit == 'LinUcbOne':
-        policy = linucb_one.LinUcbOne(d=dim, alpha=0.01)
+#     elif bandit == 'LinUcbOne':
+#         policy = linucb_one.LinUcbOne(d=dim, alpha=0.01)
 
-    elif bandit == 'LinUcbMulti':
-        policy = linucb_multi.LinUcbMulti(numUsers, d=dim, alpha=0.1)
+#     elif bandit == 'LinUcbMulti':
+#         policy = linucb_multi.LinUcbMulti(numUsers, d=dim, alpha=0.1)
 
-    elif bandit == 'ExploitMulti':
-        policy = linucb_multi.LinUcbMulti(numUsers, d=dim, alpha=0)
+#     elif bandit == 'ExploitMulti':
+#         policy = linucb_multi.LinUcbMulti(numUsers, d=dim, alpha=0)
 
-    elif bandit == 'ExploitSingle':
-        policy = linucb_one.LinUcbOne(d=dim, alpha=0)
+#     elif bandit == 'ExploitSingle':
+#         policy = linucb_one.LinUcbOne(d=dim, alpha=0)
 
-    elif bandit == 'random':
-        policy = 0
+#     elif bandit == 'CAB':
+#         policy = cab.CAB(numUsers, d=dim, gamma=0.1, alpha=0.5)
 
-    return policy
+#     elif bandit == 'random':
+#         policy = 0
+
+#     return policy
 
 
 def explore_parameters(bandit, dim, t, numUsers):
@@ -109,6 +112,11 @@ def explore_parameters(bandit, dim, t, numUsers):
             policy[bandit + str(i)] = linucb_multi.LinUcbMulti(
                 numUsers, d=dim, alpha=i)
 
+    elif bandit == 'Cab':
+        for i in test:
+            policy[bandit + str(i)] = cab.CAB(
+                numUsers, d=dim, gamma=0.1, alpha=i)
+
     return policy
 
 
@@ -116,8 +124,6 @@ def explore_parameters(bandit, dim, t, numUsers):
 def policy_evaluation(policy, bandit, X, Y, users):
 
     print(bandit)
-    T, k, d = X.shape
-    seq_error = [0] * T
 
     X_train, X_test, y_train, y_test, user_train, user_test = train_test_split(
         X, Y, users, test_size=0.8, random_state=42)
@@ -197,8 +203,10 @@ def main():
     # conduct regret analyses
     regret = {}
     cum_regret = {}
-    bandits = ['ThompMulti', 'ThompsonOne',
-               'LinUcbMulti', 'LinUcbOne', 'ThompCab']
+    # bandits = ['ThompMulti', 'ThompsonOne',
+    #            'LinUcbMulti', 'LinUcbOne', 'ThompCab']
+    bandits = ['Cab']
+    # bandits = ['ThompCab']
     for b in bandits:
         policies = explore_parameters(b, d, time, numUsers)
         res_path = join(test_dir, b)
