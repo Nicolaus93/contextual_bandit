@@ -3,6 +3,9 @@ import argparse
 from sklearn.preprocessing import normalize
 import h5py
 import os
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pickle
 
 
 def get_random_state(random_state=None):
@@ -13,7 +16,7 @@ def get_random_state(random_state=None):
     return random_state
 
 
-def artificial_data_generator(T=1000, d=10, K=10, classes=5, numUsers=1,
+def artificial_data_generator(T=1000, K=10, numUsers=1,
                               model=None, random_state=None):
 
     r = get_random_state(random_state=random_state)
@@ -21,11 +24,11 @@ def artificial_data_generator(T=1000, d=10, K=10, classes=5, numUsers=1,
     # generate model
     if model is None:
         # model = np.random.randint(low=-1, high=2, size=(classes, d))
-        model = np.random.random((classes, d))
+        model = np.random.random((5, 10))
         # model = np.random.randint(2, size=(classes, d))
         # model[model == 0] = -1
-    else:
-        classes, d = model.shape
+
+    classes, d = model.shape
 
     # generate users_feat
     users_feat = np.zeros(shape=(classes * numUsers, d))
@@ -75,7 +78,7 @@ def artificial_data_generator(T=1000, d=10, K=10, classes=5, numUsers=1,
         for i in range(K):
             Y[t, i] = r.normal(mean[i], 0.1)
 
-    return X, Y, users, model, users_feat
+    return X, Y, users
 
 
 if __name__ == '__main__':
@@ -87,34 +90,54 @@ if __name__ == '__main__':
     parser.add_argument('-k', dest='k', metavar='items_per_round',
                         type=int, nargs=1,
                         help='number of items per round')
-    parser.add_argument('-d', dest='d', metavar='features',
-                        type=int, nargs=1,
-                        help='dimension of features')
     parser.add_argument('-t', dest='t', metavar='interactions',
                         type=int, nargs=1,
                         help='interactions per user')
-    parser.add_argument('-c', dest='c', metavar='classes',
-                        type=int, nargs=1,
-                        help='number of classes')
     parser.add_argument('-u', dest='u', metavar='users',
                         type=int, nargs=1,
                         help='number of users per class')
+    parser.add_argument(dest='model', metavar='model', type=str, nargs=1,
+                        help='the model to use')
+    parser.add_argument('-plot', dest='plot', action='store_true',
+                        default=False,
+                        help='whether to plot model')
 
     args = parser.parse_args()
     save = args.save
+    plot = args.plot
     k = args.k[0]
-    d = args.d[0]
     t = args.t[0]
-    c = args.c[0]
     u = args.u[0]
+    model_name = args.model[0]
+    model_path = os.path.join(os.getcwd(), 'models/' + model_name)
+    fileObject = open(model_path, 'rb')
+    model = pickle.load(fileObject)
 
-    X, Y, users, model, us_feat = artificial_data_generator(T=t, d=d, K=k,
-                                                            classes=c,
-                                                            numUsers=u)
+    X, Y, users = artificial_data_generator(T=t, K=k, numUsers=u, model=model)
+    classes, d = model.shape
+
+    if plot:
+        sns.set()
+        col = sns.color_palette()
+        plt.figure(1)
+        i, j = model.shape
+        first = int(str(i) + '11')  # plot x11
+        ax1 = plt.subplot(first)
+        plt.setp(ax1.get_xticklabels(), visible=False)
+        x = range(d)
+        plt.bar(x, height=model[0])
+        for k in range(2, classes + 1):
+            num = int(str(i) + '1' + str(k))
+            plt.subplot(num, sharex=ax1)
+            plt.bar(x, height=model[k - 1], color=col[k - 1])
+            ax2 = plt.subplot(num, sharex=ax1)
+            plt.setp(ax2.get_xticklabels(), visible=False)
+        plt.show()
+
     if save:
         file_path = os.getcwd()
-        dataset = str(c) + "_classes" + str(u) + "_users" + str(t) + "_rounds"
-        directory = os.path.join(file_path, dataset)
+        dataset = model_name + '_' + str(u) + "users_" + str(t) + "rounds"
+        directory = os.path.join(file_path, "data/" + dataset)
         if not os.path.exists(directory):
             os.makedirs(directory)
         print("saving..")
@@ -122,4 +145,6 @@ if __name__ == '__main__':
         data.create_dataset('X', data=X)
         data.create_dataset('y', data=Y)
         data.create_dataset('users', data=users)
+        data.create_dataset('model', data=model)
+        # data.create_dataset('us_feat', data=us_feat)
         data.close()
