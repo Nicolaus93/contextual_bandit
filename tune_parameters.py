@@ -51,7 +51,7 @@ def policy_generation(bandit, dim, t, numUsers, param):
 
     if bandit == 'ThompCab':
         policy = thomp_cab.ThompCAB(
-            numUsers, d=dim, gamma=0.1, v=param)
+            numUsers, d=dim, gamma=0.05, v=param, p=0.1)
 
     elif bandit == 'ThompMulti':
         policy = thomp_multi.ThompMulti(
@@ -67,47 +67,7 @@ def policy_generation(bandit, dim, t, numUsers, param):
         policy = linucb_multi.LinUcbMulti(numUsers, d=dim, alpha=param)
 
     elif bandit == 'Cab':
-        policy = cab.CAB(numUsers, d=dim, gamma=0.1, alpha=param)
-
-    return policy
-
-
-def explore_parameters(bandit, dim, t, numUsers):
-    """
-    A function used to tune various parameters
-    in the algorithms.
-    """
-
-    test = [0, 0.00001, 0.0001, 0.001, 0.01, 0.1]
-    policy = {}
-
-    if bandit == 'ThompCab':
-        for i in test:
-            policy[bandit + str(i)] = thomp_cab.ThompCAB(
-                numUsers, d=dim, gamma=0.1, v=i)
-
-    elif bandit == 'ThompsonOne':
-        for i in test:
-            policy[bandit + str(i)] = thomp_one.ThompsonOne(d=dim, v=i)
-
-    elif bandit == 'ThompMulti':
-        for i in test:
-            policy[bandit + str(i)] = thomp_multi.ThompMulti(
-                numUsers, d=dim, v=i)
-
-    elif bandit == 'LinUcbOne':
-        for i in test:
-            policy[bandit + str(i)] = linucb_one.LinUcbOne(d=dim, alpha=i)
-
-    elif bandit == 'LinUcbMulti':
-        for i in test:
-            policy[bandit + str(i)] = linucb_multi.LinUcbMulti(
-                numUsers, d=dim, alpha=i)
-
-    elif bandit == 'Cab':
-        for i in test:
-            policy[bandit + str(i)] = cab.CAB(
-                numUsers, d=dim, gamma=0.1, alpha=i)
+        policy = cab.CAB(numUsers, d=dim, gamma=0.1, alpha=param, p=0.01)
 
     return policy
 
@@ -122,7 +82,7 @@ def policy_evaluation(policy, bandit, X, y, users):
 
     for t in range(T):
         if bandit is not 'random':
-            if t % 10000 == 0:
+            if t % 1000 == 0:
                 print(t)
 
             policy.set_user(users[t])
@@ -196,7 +156,8 @@ def main():
     regret = {}
     cum_regret = {}
     bandits = ['ThompMulti', 'ThompsonOne',
-               'LinUcbMulti', 'LinUcbOne', 'ThompCab']
+               'LinUcbMulti', 'LinUcbOne', 'ThompCab',
+               'Cab']
     for b in bandits:
 
         res_path = join(test_dir, b)
@@ -211,16 +172,14 @@ def main():
         info_path = join(res_path, 'info.txt')
         info = open(info_path, 'w')
 
-        # policies = explore_parameters(b, d, T, numUsers)
-
-        params = [0.00001, 0.0001, 0.001, 0.01, 0.1]
+        params = [0.1, 0.001, 0.01]
         for i in params:
 
             name = b + str(i)
 
-            if b in ['ThompCab', 'ThompMulti', 'ThompsonOne']:
+            if b in ['ThompCab', 'ThompMulti', 'ThompsonOne', 'Cab']:
 
-                rounds = 10
+                rounds = 1
                 cum_regret[name] = np.zeros((rounds, T))
                 regret[name] = np.zeros((rounds, T))
                 for j in range(rounds):
@@ -247,36 +206,6 @@ def main():
             pickle.dump(regret[name], regretObject)
             fileObject.close()
             regretObject.close()
-
-        # # run tests
-        # for bandit in policies:
-
-        #     name = bandit.split('0')[0]
-        #     # average regret in randomized algorithms
-        #     if name in ['ThompCab', 'ThompMulti', 'ThompsonOne']:
-        #         rounds = 10
-        #         cum_regret[bandit] = np.zeros((rounds, T))
-        #         regret[bandit] = np.zeros((rounds, T))
-        #         for j in range(rounds):
-        #             policy = policy_generation(bandit, d, T, numUsers)
-        #             cum_regret[bandit][j] = policy_evaluation(
-        #                 policy, bandit, X_train, y_train, user_train)
-        #             regret[bandit][j] = regret_calculation(cum_regret[bandit][j])
-        #             print("regret: {:.2f}\n".format(cum_regret[bandit][j, T - 1]))
-
-        #     seq_error = policy_evaluation(policies[bandit], bandit, X_train, y_train, user_train)
-        #     regret[bandit] = regret_calculation(seq_error)
-        #     cum_regret[bandit] = seq_error
-        #     # save results
-        #     fileObject = open(join(cum_regret_dir, bandit + '.plot'), 'wb')
-        #     regretObject = open(join(regret_dir, bandit + '.plot'), 'wb')
-        #     if bandit is not 'random':
-        #         info.write(policies[bandit].verbose())
-        #         info.write('\n')
-        #     pickle.dump(cum_regret[bandit], fileObject)
-        #     pickle.dump(regret[bandit], regretObject)
-        #     fileObject.close()
-        #     regretObject.close()
 
 
 if __name__ == '__main__':
