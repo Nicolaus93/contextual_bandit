@@ -8,6 +8,7 @@ import argparse
 import os
 import h5py
 import scipy.stats as st
+import pickle
 
 
 def timeit(method):
@@ -29,11 +30,11 @@ def policy_generation(bandit, dim, t, numUsers):
     if bandit == 'ExploitOne':
         policy = linucb_one.LinUcbOne(d=dim, alpha=0)
 
-    if bandit == 'LinUcbOne':
+    elif bandit == 'LinUcbOne':
         policy = linucb_one.LinUcbOne(d=dim, alpha=0.2)
 
-    if bandit == 'ThompCAB':
-        policy = thomp_cab.ThompCAB(numUsers, d=dim, gamma=0.1, v=0.1)
+    elif bandit == 'ThompCAB':
+        policy = thomp_cab.ThompCAB(numUsers, d=dim, gamma=0.05, v=0.2)
 
     elif bandit == 'ThompMulti':
         policy = thomp_multi.ThompMulti(
@@ -50,7 +51,7 @@ def policy_generation(bandit, dim, t, numUsers):
         policy = linucb_multi.LinUcbMulti(numUsers, d=dim, alpha=0.1)
 
     elif bandit == 'CAB':
-        policy = cab.CAB(numUsers, d=dim, gamma=0.1, alpha=0.1)
+        policy = cab.CAB(numUsers, d=dim, gamma=0.05, alpha=0.2)
 
     elif bandit == 'random':
         policy = 0
@@ -61,7 +62,6 @@ def policy_generation(bandit, dim, t, numUsers):
 @timeit
 def policy_evaluation(policy, bandit, X, Y, users):
 
-    print(bandit)
     T, d, k = X.shape
     seq_error = [0] * T
 
@@ -105,7 +105,8 @@ def get_data(dataset):
 
 
 def plot_regret(fig, x, y, name, col, ylabel):
-    plt.figure(fig, figsize=(12, 8))
+    # plt.figure(fig, figsize=(12, 8))
+    plt.figure(fig)
     plt.plot(x, y, c=col,
              ls='-', label=name, linewidth=1.5)
     plt.xlabel('time')
@@ -126,6 +127,11 @@ def main():
         os.getcwd(), 'datasets/artificial_data/data/' + dataset)
     print(dataset_path)
 
+    # create result directory
+    results = os.path.join(dataset_path, 'results')
+    if not os.path.exists(results):
+        os.makedirs(results)
+
     # X, Y, users, model, us_feat = get_data(dataset_path)
     X, Y, users, model = get_data(dataset_path)
     T, d, k = X.shape
@@ -142,59 +148,78 @@ def main():
     regret = {}
     col = seaborn.color_palette()
 
-    # plot model
-    if len(model) < 6:
-        plt.figure(3)
-        plt.title('model classes')
-        i, j = model.shape
-        first = int(str(i) + '11')  # plot x11
-        ax1 = plt.subplot(first)
-        plt.setp(ax1.get_xticklabels(), visible=False)
-        x = range(d)
-        plt.bar(x, height=model[0])
-        for k in range(2, classes + 1):
-            num = int(str(i) + '1' + str(k))
-            plt.subplot(num, sharex=ax1)
-            plt.bar(x, height=model[k - 1], color=col[k - 1])
-            ax2 = plt.subplot(num, sharex=ax1)
-            plt.setp(ax2.get_xticklabels(), visible=False)
+    # # plot model
+    # if len(model) < 6:
+    #     plt.figure(3)
+    #     plt.title('model classes')
+    #     i, j = model.shape
+    #     first = int(str(i) + '11')  # plot x11
+    #     ax1 = plt.subplot(first)
+    #     plt.setp(ax1.get_xticklabels(), visible=False)
+    #     x = range(d)
+    #     plt.bar(x, height=model[0])
+    #     for k in range(2, classes + 1):
+    #         if k == 4:
+    #             plt.ylabel("Weights")
+    #         num = int(str(i) + '1' + str(k))
+    #         plt.subplot(num, sharex=ax1)
+    #         plt.bar(x, height=model[k - 1], color=col[k - 1])
+    #         ax2 = plt.subplot(num, sharex=ax1)
+    #         plt.setp(ax2.get_xticklabels(), visible=False)
+
+    #     plt.xlabel("Features")
 
     # run algorithms
     bandits = ['CAB', 'ThompCAB', 'ThompMulti', 'ThompsonOne']
     for i, bandit in enumerate(bandits):
+        print(bandit)
 
         # average regret in randomized algorithms
         if bandit in ['ThompCAB', 'ThompMulti', 'ThompsonOne']:
 
             rounds = 5
+            upd = np.zeros(rounds)
+            neigh = np.zeros(rounds)
             cum_regret = np.zeros((rounds, T))
             regret = np.zeros((rounds, T))
             for j in range(rounds):
                 policy = policy_generation(bandit, d, T, numUsers)
                 cum_regret[j] = policy_evaluation(policy, bandit, X, Y, users)
                 regret[j] = regret_calculation(cum_regret[j])
-                print("regret: {:.2f}\n".format(cum_regret[j, T - 1]))
+                try:
+                    upd[j] = np.mean(policy.updated_size)
+                    neigh[j] = np.mean(policy.neigh_size)
+                except Exception as e:
+                    print(e)
+
+            print("avg upd: {:.2f}".format(np.mean(upd)))
+            print("avg neigh: {:.2f}".format(np.mean(neigh)))
             avg_cum_regret = np.mean(cum_regret, axis=0)
+            print("avg regret: {:.2f}\n".format(avg_cum_regret[T - 1]))
             avg_regret = np.mean(regret, axis=0)
 
             # plot regret
             plot_regret(1, range(T), avg_cum_regret, str(bandit),
                         col[i], 'cumulative regret')
+
+            ii, jj = st.norm.interval(
+                0.95, loc=avg_cum_regret, scale=st.sem(cum_regret))
+
+            plt.fill(np.concatenate([range(T), range(T)[::-1]]),
+                     np.concatenate([ii, (jj)[::-1]]),
+                     alpha=.5, fc=col[i], ec='None')
+
             plot_regret(2, range(T), avg_regret, str(bandit),
                         col[i], 'regret')
 
             # plot confidence bounds
             # check here https://stackoverflow.com/questions/15033511/compute-a-confidence-interval-from-sample-data
-            # ii, jj = st.t.interval(
-            #     0.99, len(avg_regret) - 1,
-            #     loc=np.mean(avg_regret), scale=st.sem(regret))
             ii, jj = st.norm.interval(
                 0.95, loc=avg_regret, scale=st.sem(regret))
 
             plt.fill(np.concatenate([range(T), range(T)[::-1]]),
                      np.concatenate([ii, (jj)[::-1]]),
-                     alpha=.5, fc=col[i], ec='None',
-                     label='95% confidence interval')
+                     alpha=.5, fc=col[i], ec='None')
         else:
             policy = policy_generation(bandit, d, T, numUsers)
             cum_regret = policy_evaluation(policy, bandit, X, Y, users)
@@ -206,14 +231,20 @@ def main():
             plot_regret(2, range(T), regret, str(bandit),
                         col[i], 'regret')
 
+        # save results
+        fileObject = open(os.path.join(results, bandit + '.cum_regret'), 'wb')
+        pickle.dump(cum_regret, fileObject)
+        fileObject.close()
+
         # plot neighborhood and updated size in clustering algorithms
-        if bandit in ['CAB', 'ThompCAB']:
+        # if bandit in ['CAB', 'ThompCAB']:
+        if bandit in ['ThompCAB_0', 'ThompCAB_0.01', 'ThompCAB_0.05', 'ThompCAB_0.1', 'ThompCAB_0.2']:
 
             if bandit == 'CAB':
                 c = col[0]
             else:
-                c = col[2]
-                continue
+                c = col[0]
+                # continue
 
             # Two subplots, the axes array is 1-d
             seaborn.set_style("darkgrid", {'axes.grid': True})
@@ -234,12 +265,28 @@ def main():
             plt.xlabel("Time")
             plt.ylabel("size")
 
+            # # The final path to save to
+            # savepath = os.path.join(results, bandit + '_neigh')
+            # # Actually save the figure
+            # plt.savefig(savepath)
+
     plt.figure(1)
     plt.legend(loc='upper left')
+    # Save the figure
+    savepath = os.path.join(results, 'cum_regret')
+    plt.savefig(savepath)
+
     plt.figure(2)
     plt.legend(loc='upper right')
     plt.ylim([0, 1])
+    # Save the figure
+    savepath = os.path.join(results, 'regret')
+    plt.savefig(savepath)
+
+    plt.title(dataset)
     plt.show()
+
+    plt.close('all')
 
 
 if __name__ == '__main__':
