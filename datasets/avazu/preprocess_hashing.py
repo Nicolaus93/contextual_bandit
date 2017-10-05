@@ -51,12 +51,9 @@ def feature_hashing(X, N=2, cols=None):
         X_cat = X.reindex(columns=cols)
         X_num = X.reindex(columns=[x for x in X.columns.values
                                    if x not in cols])
-
         X_cat = X_cat.apply(hash_fn, axis=1)
         X_cat.columns = new_cols
-
         X = pd.merge(X_cat, X_num, left_index=True, right_index=True)
-
         return X
 
 
@@ -94,7 +91,6 @@ def conjunctions(X, cols=None):
     X_new = X_cat.apply(concatenate, axis=1)
     X_new.columns = new_cols
     X = pd.merge(X_new, X, left_index=True, right_index=True)
-
     return X
 
 
@@ -109,9 +105,8 @@ def build_dataset(df, k):
         user_interactions = group.groupby('click')  # there will be 0/1
         try:
             ones = user_interactions.get_group(1)
-        except:
-            # do not use bare except! Ok, I know..
-            # print('    not enough ones')
+            ones = ones[~ones.duplicated(keep='first')]
+        except Exception:
             continue
         try:
             zeros = user_interactions.get_group(0)
@@ -120,9 +115,7 @@ def build_dataset(df, k):
                 r = pd.concat([zeros.sample(n=k - 1), index_and_row[1]
                                .to_frame().transpose()])
                 lst.append(r.iloc[np.random.permutation(len(r))])
-        except:
-            # Did it again :P
-            # print('    not enough zeros')
+        except Exception:
             continue
     random.shuffle(lst)
     return pd.concat(lst)
