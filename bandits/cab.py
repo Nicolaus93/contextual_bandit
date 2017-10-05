@@ -19,12 +19,11 @@ class CAB(object):
 
     """
 
-    def __init__(self, users, d=128, gamma=0.5, alpha=0.5, minUsed=0, p=0.2):
+    def __init__(self, users, d=128, gamma=0.5, alpha=0.5, p=1):
 
         self.numUsers = users  # number of Users
         self.d = d
         self.alpha = alpha
-        self.minUsed = minUsed
         self.gamma = gamma
         self.p = p
         self.t = 0
@@ -52,13 +51,22 @@ class CAB(object):
         K = len(context_array)
         # define confidence bounds
         self.CB = np.zeros(shape=(self.numUsers, K))
+
         # define neighborood sets
         self.N = np.zeros(shape=(self.numUsers, K), dtype=int)
+
+        cb_u = np.diag(self.alpha * np.sqrt(context_array.dot(self.A_inv[user])
+                                            .dot(context_array.T)))
         # compute confidence bounds
         for u in range(self.numUsers):
-            temp = self.alpha * np.sqrt(context_array.dot(self.A_inv[u])
-                                        .dot(context_array.T))
-            self.CB[u] = np.diag(temp)
+            if np.random.rand() < self.p:
+                temp = self.alpha * np.sqrt(context_array.dot(self.A_inv[u])
+                                            .dot(context_array.T))
+                self.CB[u] = np.diag(temp)
+            else:
+                self.CB[u] = -cb_u
+        self.CB[user] = cb_u
+
         estimated_reward = self.w.dot(context_array.T)
         # find users in the neighborhood
         i, j = np.where(np.abs(estimated_reward - estimated_reward[user]) <
@@ -112,8 +120,8 @@ class CAB(object):
             self.N[user, action_id] = 0  # user already updated
             to_update = self.CB[:, action_id] * self.N[:, action_id]
             for j, value in enumerate(to_update):
-                if value <= self.gamma / self.used[j] \
-                        and value > 0:
+                # if value > 0 and value <= self.gamma:
+                if value > 0 and value <= self.gamma / self.used[j]:
                     self._update(j, x, reward)
 
         # update updated size
